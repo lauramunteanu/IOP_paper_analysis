@@ -43,7 +43,7 @@ PMNS = dict(theta12=0.583, theta23=0.857, theta13=0.149, deltaCP=-np.pi / 2,
             dm21=7.41e-5, dm32=2.437e-3)
 EARTH_DENSITY_GCC = 2.8
 
-BASELINE_KM = {"hk": 295.0, "dune": 1300.0}
+BASELINE_KM = {"hk": 295.0, "dune": 1285.0}
 
 XMIN_FIXED, XMAX_FIXED = -1000.0, 1000.0
 HK_NBINS, HK_HIST_RANGE   = 200, (-1000.0, 1000.0)
