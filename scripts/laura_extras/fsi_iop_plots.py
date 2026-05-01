@@ -61,7 +61,7 @@ OUTER_ALPHA = 0.35
 XMIN_FIXED, XMAX_FIXED = -1000.0, 1000.0  # visible x-axis [MeV]
 # Per-experiment histogram binning matching Jake's Fig3 / Fig4 conventions.
 HK_NBINS, HK_HIST_RANGE   = 200, (-1000.0, 1000.0)   # 10 MeV bins, [-1, +1] GeV
-DUNE_NBINS, DUNE_HIST_RANGE = 100, (-3000.0, 1000.0) # 40 MeV bins, [-3, +1] GeV
+DUNE_NBINS, DUNE_HIST_RANGE = 400, (-3000.0, 1000.0) # 10 MeV bins, [-3, +1] GeV
 HIST_FILL_ALPHA = 0.22    # translucent histogram silhouette
 WHISKER_ALPHA = 0.50      # faint whiskers
 BOX_LW = 1.4              # 1-sigma outline width
