@@ -3,3 +3,5 @@ scripts/__pycache__/*
 
 # pickle cache for laura_extras
 _cache/
+
+scripts/output/
