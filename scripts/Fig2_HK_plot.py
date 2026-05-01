@@ -63,43 +63,46 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name):
   if(isNuBar == False):
     mode_colors = {
         1: "red",
-        2: "green",
-        21: "orange",
-        26: "purple",
+        2: "blue",
+        # 21: "orange",
+        # 26: "purple",
     }
   else:
     mode_colors = {
         -1: "red",
-        -2: "green",
-        -21: "orange",
-        -26: "purple",
+        -2: "blue",
+        # -21: "orange",
+        # -26: "purple",
     }
 
   for m, diffs in diff_by_mode.items():
+    if(abs(m) == 1 or abs(m) ==2):
 
-    if len(diffs) == 0:
+      if len(diffs) == 0:
+          continue
+      if m == 0: # no 0 mode
         continue
-    if m == 0: # no 0 mode
-       continue
 
-    ax.hist(
-        diffs,
-        bins=np.arange(-1000, 1000, 10),
-        # histtype='step',
-        stacked=True,
-        linewidth=1.5,
-        linestyle="--",
-        color=mode_colors.get(m, "gray"),
-        label=f"Mode {m}"
-    )
+      ax.hist(
+          diffs,
+          bins=np.arange(-1000, 1000, 10),
+          # histtype='step',
+          stacked=True,
+          linewidth=1.5,
+          linestyle="--",
+          color=mode_colors.get(m, "gray"),
+          label=f"Mode {m}"
+      )
 
   ax.legend()
+  ax.set_xlabel(r"$E_{\nu}^{\text{QE}} - E_{\nu}^{\text{true}}$ [MeV]")
+  ax.set_ylabel("Counts")
   plt.gca()
-  # plt.savefig(f"Fig2_plots/Fig2_HK_EnuRecoBias_{plot_name}.pdf")
-  plt.show()
+  plt.savefig(f"Fig2_plots/Fig2_HK_EnuRecoBias_{plot_name}.pdf")
+  # plt.show()
 
   fin.Close()
 
-_events = 100000
+_events = -1
 plot_Enu_bias(filename="../../Remade_April26/HK/HK_numu_noFSI.flat.root", label = r"no FSI $\nu_{\mu}$", isNuBar = False, nEvents=_events, plot_name="noFSI_numu")
 plot_Enu_bias(filename="../../Remade_April26/HK/HK_numubar_noFSI.flat.root", label = r"no FSI $\bar{\nu}_{\mu}$", isNuBar = True, nEvents=_events, plot_name="noFSI_numubar")

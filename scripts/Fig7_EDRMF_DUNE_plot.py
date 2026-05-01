@@ -1,8 +1,10 @@
 from FlatTreeMod import *
-ROOT.gROOT.SetBatch(True)
 
-def plot_Enu_bias_numu(ax, filename, label, nEvents, withPion):
+def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, withPion,
+                       nominal=False, counts_nom=None):
+
   Print(f"Reading: {filename}")
+
   # ---------------------------------
   # Open input file and tree
   # ---------------------------------
@@ -11,12 +13,14 @@ def plot_Enu_bias_numu(ax, filename, label, nEvents, withPion):
 
   bias_wo_list   = []
   bias_with_list = []
+
   # ---------------------------------
   # Event loop
   # ---------------------------------
   nentries = tree.GetEntries()
   nevs = 0
   fScaleFactor = 0
+
   if(nEvents == -1):
     nevs = nentries
   else:
@@ -28,7 +32,7 @@ def plot_Enu_bias_numu(ax, filename, label, nEvents, withPion):
       ELep     = tree.ELep
       Enu_true = tree.Enu_true
       nfsp     = tree.nfsp
-      mode     = tree.Mode
+
       _fscalefactor = tree.fScaleFactor
       if(_fscalefactor > fScaleFactor):
          fScaleFactor = _fscalefactor
@@ -39,13 +43,9 @@ def plot_Enu_bias_numu(ax, filename, label, nEvents, withPion):
       pz = tree.pz
       pdg = tree.pdg
 
-      # -------------------------
-      # Lepton energy
-      # -------------------------
       enuhad_wo   = ELep
       enuhad_with = ELep
 
-      # Loop over final state particles
       for j in range(nfsp):
 
           apdg = abs(int(pdg[j]))
@@ -56,19 +56,15 @@ def plot_Enu_bias_numu(ax, filename, label, nEvents, withPion):
 
           p2 = pxj*pxj + pyj*pyj + pzj*pzj
 
-          # -------------------------
-          # Heavy baryons (both defs)
-          # -------------------------
-          if apdg > 3000: # Remove contribution > 0
+          if apdg > 3000:
               continue
+
           if apdg > 2300 and apdg < 3000:
               enuhad_wo   += Ej
               enuhad_with += Ej
               continue
 
-          # -------------------------
-          # Definition 1 (no pion mass subtraction)
-          # -------------------------
+          # Definition 1: no pion mass subtraction
           if (apdg == 11 or (apdg > 17 and apdg < 2000)) and (apdg != 211):
               enuhad_wo += Ej
 
@@ -78,9 +74,7 @@ def plot_Enu_bias_numu(ax, filename, label, nEvents, withPion):
                   mass = np.sqrt(mass2)
                   enuhad_wo += (Ej - mass)
 
-          # -------------------------
-          # Definition 2 (with pion masses)
-          # -------------------------
+          # Definition 2: with pion masses
           if (apdg == 11 or (apdg > 17 and apdg < 2000)):
               enuhad_with += Ej
 
@@ -90,67 +84,184 @@ def plot_Enu_bias_numu(ax, filename, label, nEvents, withPion):
                   mass = np.sqrt(mass2)
                   enuhad_with += (Ej - mass)
 
-      # -------------------------
-      # Fill
-      # -------------------------
       bias_wo   = enuhad_wo   - Enu_true
       bias_with = enuhad_with - Enu_true
 
       bias_wo_list.append(bias_wo)
       bias_with_list.append(bias_with)
 
-  # ---------------------------------
-  # Write output
-  # ---------------------------------
   bias_wo_list = np.array(bias_wo_list)
   bias_with_list = np.array(bias_with_list)
 
   bin_width = 0.05
-  bins = np.arange(-0.7, 0+bin_width, step=bin_width)
+  bins = np.arange(-0.7, 0 + bin_width, step=bin_width)
+
   weights_with = fScaleFactor*np.ones_like(bias_with_list)/bin_width
-  weights_wo = fScaleFactor*np.ones_like(bias_wo_list)/bin_width
+  weights_wo   = fScaleFactor*np.ones_like(bias_wo_list)/bin_width
 
+  # ---------------------------------
+  # Choose with/without pion correction
+  # ---------------------------------
   if(withPion == True):
-    if(label == "ED-RMF"):
-      ax.hist(bias_with_list, bins=bins, histtype='step', weights=weights_with, color=dark_red,linewidth=1.5, label = f"{label} w/ pion mass")
-      custom_lines.append(Line2D([0], [0], color=dark_red, lw=2, linestyle='-'))
-      labels.append(f"{label} w/ pion mass")
-    elif (label == "RPWIA"):
-      ax.hist(bias_with_list, bins=bins, histtype='step', weights=weights_with, color=dark_blue,linewidth=1.5, label = f"{label} w/ pion mass")
-      custom_lines.append(Line2D([0], [0], color=dark_red, lw=2, linestyle='-'))
-      labels.append(f"{label} w/ pion mass") 
-      
+      bias = bias_with_list
+      weights = weights_with
+      pion_label = "w/ pion mass"
   else:
-    if(label == "ED-RMF"):
-      ax.hist(bias_wo_list, bins=bins, histtype='step', weights=weights_wo, color=dark_red,linewidth=1.5, label = f"{label} w/o pion mass")
-      custom_lines.append(Line2D([0], [0], color=dark_blue, lw=2, linestyle='-'))
-      labels.append(f"{label}w/o pion mass")
-    elif (label == "RPWIA"):
-      ax.hist(bias_wo_list, bins=bins, histtype='step', weights=weights_wo, color=dark_blue,linewidth=1.5, label = f"{label} w/o pion mass")
-      custom_lines.append(Line2D([0], [0], color=dark_blue, lw=2, linestyle='-'))
-      labels.append(f"{label}w/o pion mass")
+      bias = bias_wo_list
+      weights = weights_wo
+      pion_label = "w/o pion mass"
 
+  # ---------------------------------
+  # Style
+  # ---------------------------------
+  if(label == "ED-RMF"):
+      color = dark_red
+  elif(label == "RPWIA"):
+      color = dark_blue
+  else:
+      color = "black"
+
+  plot_label = f"{label} {pion_label}"
+
+  # ---------------------------------
+  # Main histogram
+  # ---------------------------------
+  ax.hist(
+      bias,
+      bins=bins,
+      histtype='step',
+      weights=weights,
+      color=color,
+      linewidth=1.5,
+      label=plot_label
+  )
+
+  custom_lines.append(Line2D([0], [0], color=color, lw=2, linestyle='-'))
+  labels.append(plot_label)
+
+  # ---------------------------------
+  # Ratio histogram
+  # ---------------------------------
+  counts, edges = np.histogram(bias, weights=weights, bins=bins)
+
+  if(nominal == True):
+      ax_ratio.hlines(1, bins[0], bins[-1], linestyle='--', color=dark_blue)
+      fin.Close()
+      return counts
+
+  else:
+      ratio = counts / counts_nom
+      ratio = np.nan_to_num(ratio, nan=0.0, posinf=0.0, neginf=0.0)
+
+      ax_ratio.step(
+        edges,
+        np.r_[ratio, ratio[-1]],
+        color=color,
+        linestyle='-',
+        where='post'  
+      )
 
   fin.Close()
+  return counts
 
-
-fig, ax = plt.subplots(1,2)
 _events = 100000
+
+# ============================================================
+# Plot 1: without pion mass correction
+# ============================================================
+custom_lines, labels = [], []
+
+fig, (ax, ax_ratio) = plt.subplots(
+    2, 1,
+    sharex=True,
+    gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
+)
+
 _withPion = False
-plot_Enu_bias_numu(ax=ax[0], filename="../../FSI/NEUT_Ar40_EDRMF_numu.flat.root", label="ED-RMF", nEvents=_events, withPion=_withPion)
-plot_Enu_bias_numu(ax=ax[0], filename="../../FSI/RPWIA_1M_Cas_numu_Ar40.flat.root", label="RPWIA", nEvents=_events, withPion=_withPion)
-ax[0].legend(loc='best', fontsize=15)
-ax[0].set_xlabel(r"$E_{\nu}^{\text{bias}}$ [MeV]")
-ax[0].set_ylabel(r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ [cm$^{2}$/nucleon MeV]")
 
-_events = 100000
+counts_rpwia_wo = plot_Enu_bias_numu(
+    ax=ax,
+    ax_ratio=ax_ratio,
+    filename="../../FSI/RPWIA_1M_Cas_numu_Ar40.flat.root",
+    label="RPWIA",
+    nEvents=_events,
+    withPion=_withPion,
+    nominal=True
+)
+
+plot_Enu_bias_numu(
+    ax=ax,
+    ax_ratio=ax_ratio,
+    filename="../../FSI/NEUT_Ar40_EDRMF_numu.flat.root",
+    label="ED-RMF",
+    nEvents=_events,
+    withPion=_withPion,
+    nominal=False,
+    counts_nom=counts_rpwia_wo
+)
+
+ax.legend(custom_lines, labels, loc='best', fontsize=15)
+ax.set_title(r"$\nu_{\mu}$, w/o pion mass")
+ax.set_ylabel(
+    r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ "
+    r"[cm$^{2}$/nucleon GeV]"
+)
+
+ax_ratio.set_xlabel(r"$E_{\nu}^{\text{avail}} - E_{\nu}^{\text{true}}$ [GeV]")
+ax_ratio.set_ylabel("ED-RMF/RPWIA")
+ax_ratio.set_ylim(0, 2)
+
+plt.savefig("Fig7_plots/Fig7_Ar40_EnuRecoBias_EDRMF_RPWIA_WithoutPion_ratio.pdf")
+plt.close(fig)
+
+
+# ============================================================
+# Plot 2: with pion mass correction
+# ============================================================
+custom_lines, labels = [], []
+
+fig, (ax, ax_ratio) = plt.subplots(
+    2, 1,
+    sharex=True,
+    gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
+)
+
 _withPion = True
-plot_Enu_bias_numu(ax=ax[1], filename="../../FSI/NEUT_Ar40_EDRMF_numu.flat.root", label="ED-RMF", nEvents=_events, withPion=_withPion)
-plot_Enu_bias_numu(ax=ax[1], filename="../../FSI/RPWIA_1M_Cas_numu_Ar40.flat.root", label="RPWIA", nEvents=_events, withPion=_withPion)
-ax[1].legend(loc='best', fontsize=15)
-ax[1].set_xlabel(r"$E_{\nu}^{\text{bias}}$ [MeV]")
-ax[1].set_ylabel(r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ [cm$^{2}$/nucleon MeV]")
-plt.show()
+
+counts_rpwia_with = plot_Enu_bias_numu(
+    ax=ax,
+    ax_ratio=ax_ratio,
+    filename="../../FSI/RPWIA_1M_Cas_numu_Ar40.flat.root",
+    label="RPWIA",
+    nEvents=_events,
+    withPion=_withPion,
+    nominal=True
+)
+
+plot_Enu_bias_numu(
+    ax=ax,
+    ax_ratio=ax_ratio,
+    filename="../../FSI/NEUT_Ar40_EDRMF_numu.flat.root",
+    label="ED-RMF",
+    nEvents=_events,
+    withPion=_withPion,
+    nominal=False,
+    counts_nom=counts_rpwia_with
+)
+
+ax.legend(custom_lines, labels, loc='best', fontsize=15)
+ax.set_title(r"$\nu_{\mu}$, w/ pion mass")
+ax.set_ylabel(
+    r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ "
+    r"[cm$^{2}$/nucleon GeV]"
+)
+
+ax_ratio.set_xlabel(r"$E_{\nu}^{\text{had}} - E_{\nu}^{\text{true}}$ [GeV]")
+ax_ratio.set_ylabel("ED-RMF/RPWIA")
+ax_ratio.set_ylim(0, 2)
+
+plt.savefig("Fig7_plots/Fig7_Ar40_EnuRecoBias_EDRMF_RPWIA_WithPion_ratio.pdf")
+plt.close(fig)
 
 
 

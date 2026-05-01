@@ -41,7 +41,7 @@ def plot_osc_true(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts
    
 
 
-def plot_EnuReco(nEvents: int, IsdCP: bool):
+def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
     ## Set axis
     fig = plt.figure()
     gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.07)
@@ -50,7 +50,7 @@ def plot_EnuReco(nEvents: int, IsdCP: bool):
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)
 
-    filename = "../../FSI/NuWro_Ar40_numu.flat.root"
+    filename = "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root"
     fin = ROOT.TFile.Open(filename)
     tree = fin.Get("FlatTree_VARS")
 
@@ -153,8 +153,6 @@ def plot_EnuReco(nEvents: int, IsdCP: bool):
         bias_wo   = enuhad_wo   #- Enu_true
         bias_with = enuhad_with #- Enu_true
 
-        # if(has_neutron==False and bias_with < -0.2):
-            # Print(f"bias: {bias_with}| mode: {mode}| PDGs: {event_pdg}")
         if(bad_event == False):
             # Total
             bias_wo_list.append(bias_wo)
@@ -211,39 +209,65 @@ def plot_EnuReco(nEvents: int, IsdCP: bool):
     pmns.SetDeltaMsqrs(dm21, dm32_new)
     prob_minus_dm2 = np.array([pmns.Prob(1, 1, E, L) for E in Enu_t_sel])  # νμ → νμ survival
 
-    if(IsdCP == True):
-        counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, "default PMNS", vivid_purple, prob_default_nue, True, counts_nom)
-        plot_osc_reco(ax, ax_ratio, bias_with_list, "Inc dCP", light_green, prob_plus_dcp, False, counts_nom)
-        plot_osc_reco(ax, ax_ratio, bias_with_list, "Dec dCP", dark_green, prob_minus_dcp, False, counts_nom)
-        plot_osc_reco(ax, ax_ratio, bias_with_list+(15/1000), "default PMNS, +15MeV shift", dark_blue, prob_default_nue, False, counts_nom)
-        plot_osc_reco(ax, ax_ratio, bias_with_list-(15/1000), "default PMNS, -15MeV shift", dark_red, prob_default_nue, False, counts_nom)
+    if(IsReco == True):
+        if(IsdCP == True):
+            counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, "default PMNS", vivid_purple, prob_default_nue, True, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list, "Inc dCP", light_green, prob_plus_dcp, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list, "Dec dCP", dark_green, prob_minus_dcp, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list+(15/1000), "default PMNS, +15MeV shift", dark_blue, prob_default_nue, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list-(15/1000), "default PMNS, -15MeV shift", dark_red, prob_default_nue, False, counts_nom)
 
-        ax.legend(loc = 'upper right')
-        ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{had}}}$ [MeV]")
-        ax.set_ylabel("Number of events")
-        ax_ratio.set_ylim(0.90,1.1)
-        # plt.savefig("Fig1_plots/Fig1_EnuQE_dCP_both_shifts.pdf")
+            ax.legend(loc = 'upper right')
+            ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{had}}}$ [MeV]")
+            ax.set_ylabel("Number of events")
+            ax_ratio.set_ylim(0.90,1.1)
+            plt.savefig("Fig1_plots/Fig1_DUNE_Enuhad_dCP.pdf")
 
+        else:
+            counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, "default PMNS", vivid_purple, prob_default_numu, True, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list, "Inc dm32", light_green, prob_plus_dm2, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list, "Dec dm32", dark_green, prob_minus_dm2, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list+(15/1000), "default PMNS, +15MeV shift", dark_blue, prob_default_numu, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list-(15/1000), "default PMNS, -15MeV shift", dark_red, prob_default_numu, False, counts_nom)
+
+            ax.legend(loc = 'upper right')
+            ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{had}}}$ [MeV]")
+            ax.set_ylabel("Number of events")
+            ax_ratio.set_ylim(0.90,1.1)
+            plt.savefig("Fig1_plots/Fig1_DUNE_Enuhad_dm32.pdf")
     else:
-        counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, "default PMNS", vivid_purple, prob_default_numu, True, counts_nom)
-        plot_osc_reco(ax, ax_ratio, bias_with_list, "Inc dm32", light_green, prob_plus_dm2, False, counts_nom)
-        plot_osc_reco(ax, ax_ratio, bias_with_list, "Dec dm32", dark_green, prob_minus_dm2, False, counts_nom)
-        plot_osc_reco(ax, ax_ratio, bias_with_list+(15/1000), "default PMNS, +15MeV shift", dark_blue, prob_default_numu, False, counts_nom)
-        plot_osc_reco(ax, ax_ratio, bias_with_list-(15/1000), "default PMNS, -15MeV shift", dark_red, prob_default_numu, False, counts_nom)
+        if(IsdCP == True):
+            counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, "default PMNS", vivid_purple, prob_default_nue, True, counts_nom)
+            plot_osc_reco(ax, ax_ratio, Enu_t_sel, "Inc dCP", light_green, prob_plus_dcp, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, Enu_t_sel, "Dec dCP", dark_green, prob_minus_dcp, False, counts_nom)
 
-        ax.legend(loc = 'upper right')
-        ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{had}}}$ [MeV]")
-        ax.set_ylabel("Number of events")
-        ax_ratio.set_ylim(0.90,1.1)
-        # plt.savefig("Fig1_plots/Fig1_EnuTrue_dCP.pdf")
-    plt.show()
+            ax.legend(loc = 'upper right')
+            ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{had}}}$ [MeV]")
+            ax.set_ylabel("Number of events")
+            ax_ratio.set_ylim(0.90,1.1)
+            plt.savefig("Fig1_plots/Fig1_DUNE_EnuTrue_dCP.pdf")
+
+        else:
+            counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, "default PMNS", vivid_purple, prob_default_numu, True, counts_nom)
+            plot_osc_reco(ax, ax_ratio, Enu_t_sel, "Inc dm32", light_green, prob_plus_dm2, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, Enu_t_sel, "Dec dm32", dark_green, prob_minus_dm2, False, counts_nom)
+
+            ax.legend(loc = 'upper right')
+            ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{true}}}$ [MeV]")
+            ax.set_ylabel("Number of events")
+            ax_ratio.set_ylim(0.90,1.1)
+            plt.savefig("Fig1_plots/Fig1_DUNE_EnuTrue_dm32.pdf")
+    # plt.show()
 
     return
 
 
 
 # plot_EnuReco(nEvents = -1, IsdCP = True)
-plot_EnuReco(nEvents = -1, IsdCP = False)
+# plot_EnuReco(nEvents = -1, IsReco=False, IsdCP = False)
+# plot_EnuReco(nEvents = -1, IsReco=False, IsdCP = True)
+plot_EnuReco(nEvents = 1000000, IsReco=True, IsdCP = False) # issue
+# plot_EnuReco(nEvents = -1, IsReco=True, IsdCP = True)
 
 
 

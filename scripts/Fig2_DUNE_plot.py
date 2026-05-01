@@ -139,10 +139,13 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name):
         ax.hist(bias_wo_list, bins=np.arange(-3, 1, step=0.04), histtype='step', weights=np.ones_like(bias_with_list), color=dark_blue,linewidth=1.5, label = "w/o pion mass correction")
         custom_lines.append(Line2D([0], [0], color=dark_blue, lw=2, linestyle='-'))
         labels.append("w/o pion mass correction")
+        ax.set_xlabel(r"$E_{\nu}^{\text{avail}} - E_{\nu}^{\text{true}}$ [GeV]")
+
     else:
         ax.hist(bias_with_list, bins=np.arange(-3, 1, step=0.04), histtype='step', weights=np.ones_like(bias_with_list), color=dark_red,linewidth=1.5, label = "w/ pion mass")
         custom_lines.append(Line2D([0], [0], color=dark_red, lw=2, linestyle='-'))
         labels.append("w/ pion mass")
+        ax.set_xlabel(r"$E_{\nu}^{\text{had}} - E_{\nu}^{\text{true}}$ [GeV]")
 
     bins = np.arange(-3, 1, step=0.04)
     # w/ pion mass correction, by neutron
@@ -166,11 +169,15 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name):
     ax.legend()
 
     plt.gca()
-    # plt.savefig(f"Fig2_plots/Fig2_DUNE_EnuRecoBias_{plot_name}.pdf")
-    plt.show()
+    ax.set_ylabel("Counts")
+    plt.savefig(f"Fig2_plots/Fig2_DUNE_EnuRecoBias_{plot_name}.pdf")
+    # plt.show()
     fin.Close()
 
-_events = 10000
+_events = -1
 
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root", nEvents=_events, withPiCorr=True, plot_name="WithoutPion_noFSI_numu")
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root", nEvents=_events, withPiCorr=True, plot_name="WithoutPion_noFSI_numubar")
+plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root", nEvents=_events, withPiCorr=True, plot_name= "WithPion_noFSI_numu")
+plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root", nEvents=_events, withPiCorr=True, plot_name="WithPion_noFSI_numubar")
+
+plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root", nEvents=_events, withPiCorr=False, plot_name="WithoutPion_noFSI_numu")
+plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root", nEvents=_events, withPiCorr=False, plot_name="WithoutPion_noFSI_numubar")

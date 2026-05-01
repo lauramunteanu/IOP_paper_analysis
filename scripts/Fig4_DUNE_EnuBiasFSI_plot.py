@@ -1,7 +1,7 @@
 from FlatTreeMod import *
 ROOT.gROOT.SetBatch(True)
 
-def plot_Enu_bias_numu(ax, filename, nEvents, withPion):
+def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, nominal=False, counts_nom=None):
   # ---------------------------------
   # Open input file and tree
   # ---------------------------------
@@ -10,12 +10,14 @@ def plot_Enu_bias_numu(ax, filename, nEvents, withPion):
 
   bias_wo_list   = []
   bias_with_list = []
+
   # ---------------------------------
   # Event loop
   # ---------------------------------
   nentries = tree.GetEntries()
   nevs = 0
   fScaleFactor = 0
+
   if(nEvents == -1):
     nevs = nentries
   else:
@@ -27,8 +29,8 @@ def plot_Enu_bias_numu(ax, filename, nEvents, withPion):
       ELep     = tree.ELep
       Enu_true = tree.Enu_true
       nfsp     = tree.nfsp
-      mode     = tree.Mode
       bad_event = False
+
       _fscalefactor = tree.fScaleFactor
       if(_fscalefactor > fScaleFactor):
          fScaleFactor = _fscalefactor
@@ -57,18 +59,19 @@ def plot_Enu_bias_numu(ax, filename, nEvents, withPion):
           p2 = pxj*pxj + pyj*pyj + pzj*pzj
 
           # -------------------------
-          # Heavy baryons (both defs)
+          # Heavy baryons
           # -------------------------
-          if apdg > 3000: # Remove contribution > 0
+          if apdg > 3000:
               bad_event = True
               continue
+
           if apdg > 2300 and apdg < 3000:
               enuhad_wo   += Ej
               enuhad_with += Ej
               continue
 
           # -------------------------
-          # Definition 1 (no pion mass subtraction)
+          # Definition 1: no pion mass subtraction
           # -------------------------
           if (apdg == 11 or (apdg > 17 and apdg < 2000)) and (apdg != 211):
               enuhad_wo += Ej
@@ -80,7 +83,7 @@ def plot_Enu_bias_numu(ax, filename, nEvents, withPion):
                   enuhad_wo += (Ej - mass)
 
           # -------------------------
-          # Definition 2 (with pion masses)
+          # Definition 2: with pion masses
           # -------------------------
           if (apdg == 11 or (apdg > 17 and apdg < 2000)):
               enuhad_with += Ej
@@ -102,78 +105,162 @@ def plot_Enu_bias_numu(ax, filename, nEvents, withPion):
         bias_with_list.append(bias_with)
       else:
          continue
+
   # ---------------------------------
-  # Write output
+  # Histogram setup
   # ---------------------------------
   bias_wo_list = np.array(bias_wo_list)
   bias_with_list = np.array(bias_with_list)
 
   bin_width = 0.04
   bins = np.arange(-3, 1, step=bin_width)
+
   weights_with = fScaleFactor*np.ones_like(bias_with_list)/bin_width
-  weights_wo = fScaleFactor*np.ones_like(bias_wo_list)/bin_width
+  weights_wo   = fScaleFactor*np.ones_like(bias_wo_list)/bin_width
 
+  # ---------------------------------
+  # Choose which definition to plot
+  # ---------------------------------
   if(withPion == True):
-    if("noFSI" in filename):
-      ax.hist(bias_with_list, bins=bins, histtype='step', weights=weights_with, color=dark_red,linewidth=1.5, label = "w/ pion mass noFSI")
-      custom_lines.append(Line2D([0], [0], color=dark_red, lw=2, linestyle='-'))
-      labels.append("w/ pion mass noFSI")
-    else:
-      ax.hist(bias_with_list, bins=bins, histtype='step', weights=weights_with, color=dark_blue,linewidth=1.5, label = "w/ pion mass FSI")
-      custom_lines.append(Line2D([0], [0], color=dark_red, lw=2, linestyle='-'))
-      labels.append("w/ pion mass FSI") 
-      
+    bias = bias_with_list
+    weights = weights_with
+    pion_label = "w/ pion mass"
   else:
-    if("noFSI" in filename):
-      ax.hist(bias_wo_list, bins=bins, histtype='step', weights=weights_wo, color=dark_red,linewidth=1.5, label = "w/o pion mass noFSI")
-      custom_lines.append(Line2D([0], [0], color=dark_blue, lw=2, linestyle='-'))
-      labels.append("w/o pion mass noFSI")
-    else:
-      ax.hist(bias_wo_list, bins=bins, histtype='step', weights=weights_wo, color=dark_blue,linewidth=1.5, label = "w/o pion mass FSI")
-      custom_lines.append(Line2D([0], [0], color=dark_blue, lw=2, linestyle='-'))
-      labels.append("w/o pion mass FSI")
+    bias = bias_wo_list
+    weights = weights_wo
+    pion_label = "w/o pion mass"
 
+  # ---------------------------------
+  # Choose FSI / noFSI 
+  # ---------------------------------
+  if("noFSI" in filename):
+    color = dark_blue
+    label = pion_label + " noFSI"
+  else:
+    color = dark_red
+    label = pion_label + " FSI"
+
+  # ---------------------------------
+  # Main histogram
+  # ---------------------------------
+  ax.hist(
+      bias,
+      bins=bins,
+      histtype='step',
+      weights=weights,
+      color=color,
+      linewidth=1.5,
+      label=label
+  )
+
+  custom_lines.append(Line2D([0], [0], color=color, lw=2, linestyle='-'))
+  labels.append(label)
+
+  # ---------------------------------
+  # Ratio histogram
+  # ---------------------------------
+  counts, edges = np.histogram(bias, weights=weights, bins=bins)
+
+  if nominal == True:
+      ax_ratio.hlines(1, bins[0], bins[-1], linestyle='--', color='black')
+      fin.Close()
+      Print(f"Done: {filename}")
+      return counts
+
+  else:
+      ratio = counts / counts_nom
+      ratio = np.nan_to_num(ratio, nan=0.0, posinf=0.0, neginf=0.0)
+
+      ax_ratio.step(
+        edges,
+        np.r_[ratio, ratio[-1]],
+        color=color,
+        linestyle='-',
+        where='post'
+        )
 
   fin.Close()
   Print(f"Done: {filename}")
+  return counts
 
 
-fig, ax = plt.subplots()
 _events = 10000
-_withPion = True
-# plot_Enu_bias_numu(ax=ax, filename="../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root", nEvents=_events, withPion=_withPion)
-# plot_Enu_bias_numu(ax=ax, filename="../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root", nEvents=_events, withPion=_withPion)
-# ax.legend(loc='best', fontsize=15)
-# ax.set_xlabel(r"$E_{\nu}^{\text{bias}}$ [MeV]")
-# ax.set_ylabel(r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ [cm$^{2}$/nucleon MeV]")
-# plt.show()
-# plt.savefig("Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numu.pdf")
 
-fig2, ax2 = plt.subplots()
-# plot_Enu_bias_numu(ax=ax2, filename="../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root", nEvents=_events, withPion=_withPion)
-# plot_Enu_bias_numu(ax=ax2, filename="../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, withPion=_withPion)
-# ax2.legend(loc='best', fontsize=15)
-# ax2.set_xlabel(r"$E_{\nu}^{\text{bias}}$ [MeV]")
-# ax2.set_ylabel(r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ [cm$^{2}$/nucleon MeV]")
-# plt.show()
-# plt.savefig("Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numubar.pdf")
+plot_configs = [
+    {
+        "withPion": True,
+        "flavor": "numu",
+        "nofsi": "../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root",
+        "fsi": "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root",
+        "title": r"$\nu_{\mu}$, w/ pion mass",
+        "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numu.pdf"
+    },
+    {
+        "withPion": True,
+        "flavor": "numubar",
+        "nofsi": "../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root",
+        "fsi": "../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root",
+        "title": r"$\bar{\nu}_{\mu}$, w/ pion mass",
+        "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numubar.pdf"
+    },
+    {
+        "withPion": False,
+        "flavor": "numu",
+        "nofsi": "../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root",
+        "fsi": "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root",
+        "title": r"$\nu_{\mu}$, w/o pion mass",
+        "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numu.pdf"
+    },
+    {
+        "withPion": False,
+        "flavor": "numubar",
+        "nofsi": "../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root",
+        "fsi": "../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root",
+        "title": r"$\bar{\nu}_{\mu}$, w/o pion mass",
+        "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numubar.pdf"
+    }
+]
 
-_withPion = False
-# ax2.clear()
-# plot_Enu_bias_numu(ax=ax2, filename="../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root", nEvents=_events, withPion=_withPion)
-# plot_Enu_bias_numu(ax=ax2, filename="../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root", nEvents=_events, withPion=_withPion)
-# ax2.legend(loc='best', fontsize=15)
-# ax2.set_xlabel(r"$E_{\nu}^{\text{bias}}$ [MeV]")
-# ax2.set_ylabel(r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ [cm$^{2}$/nucleon MeV]")
-# plt.show()
-# plt.savefig("Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numu.pdf")
+for cfg in plot_configs:
 
-ax2.clear()
-plot_Enu_bias_numu(ax=ax2, filename="../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root", nEvents=_events, withPion=_withPion)
-plot_Enu_bias_numu(ax=ax2, filename="../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, withPion=_withPion)
-ax2.legend(loc='best', fontsize=15)
-ax2.set_xlabel(r"$E_{\nu}^{\text{bias}}$ [MeV]")
-ax2.set_ylabel(r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ [cm$^{2}$/nucleon MeV]")
-plt.show()
-# plt.savefig("Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numubar.pdf")
+    custom_lines, labels = [], []
 
+    fig, (ax, ax_ratio) = plt.subplots(
+        2, 1,
+        sharex=True,
+        gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
+    )
+
+    counts_nom = plot_Enu_bias_numu(
+        ax=ax,
+        ax_ratio=ax_ratio,
+        filename=cfg["nofsi"],
+        nEvents=_events,
+        withPion=cfg["withPion"],
+        nominal=True
+    )
+
+    plot_Enu_bias_numu(
+        ax=ax,
+        ax_ratio=ax_ratio,
+        filename=cfg["fsi"],
+        nEvents=_events,
+        withPion=cfg["withPion"],
+        nominal=False,
+        counts_nom=counts_nom
+    )
+
+    ax.legend(custom_lines, labels, loc='best', fontsize=15)
+    ax.set_title(cfg["title"])
+
+    ax.set_ylabel(
+        r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ "
+        r"[cm$^{2}$/nucleon GeV]"
+    )
+
+    ax_ratio.set_xlabel(r"$E_{\nu}^{\text{bias}}$ [GeV]")
+    ax_ratio.set_ylabel("FSI/noFSI")
+    ax_ratio.set_ylim(0, 2)
+
+    plt.savefig(cfg["outfile"])
+    plt.close(fig)
