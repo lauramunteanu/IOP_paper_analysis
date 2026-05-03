@@ -341,6 +341,26 @@ def save_standalone_legend(handles, ncol, fname, fig_w=10.0, fig_h=0.6,
     print(f"saved {OUT_DIR}/{fname}.png")
 
 
+def save_combined_legend(metric_handles, color_handles, color_title, fname,
+                         fig_w=10.0, fig_h=2.0):
+    """Per-BW-set legend combining (left) the metric markers shared by every
+    figure and (right) the variant colours specific to this set."""
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    leg1 = fig.legend(handles=metric_handles, title="Markers",
+                      loc="center", bbox_to_anchor=(0.30, 0.5),
+                      ncol=1, frameon=True, framealpha=0.9,
+                      title_fontproperties={"weight": "bold"})
+    leg2 = fig.legend(handles=color_handles, title=color_title,
+                      loc="center", bbox_to_anchor=(0.72, 0.5),
+                      ncol=1, frameon=True, framealpha=0.9,
+                      title_fontproperties={"weight": "bold"})
+    fig.add_artist(leg1)  # ensure both legends render (second overrides first by default)
+    plt.savefig(f"{OUT_DIR}/{fname}.png", dpi=200, bbox_inches="tight")
+    plt.savefig(f"{OUT_DIR}/{fname}.pdf", bbox_inches="tight")
+    plt.close(fig)
+    print(f"saved {OUT_DIR}/{fname}.png")
+
+
 # ---------------------------------------------------------------------------
 # In-process memoisation for the (already-cached) reads.
 # Disk cache is provided by FlatTreeMod.load_arrays at ~/.cache/iop_paper/ —
@@ -590,29 +610,41 @@ quantity_handles_hybrid = [
 ]
 
 def _save_all_legends():
-    save_standalone_legend(quantity_handles_hybrid, 5, "legend_quantity",
-                           fig_w=14.0, fig_h=0.6)
-    save_standalone_legend([
-        colour_swatch(COL_GREY,      "with FSI"),
-        colour_swatch(COL_VERMILION, "no FSI"),
-    ], 2, "legend_fsi", fig_w=6.0, fig_h=0.55)
-    save_standalone_legend([
-        colour_swatch(COL_VERMILION, r"$\pi_{\rm abs}$ $+31\%$"),
-        colour_swatch(COL_GREY,      "nominal"),
-        colour_swatch(COL_BLUE,      r"$\pi_{\rm abs}$ $-31\%$"),
-    ], 3, "legend_pi_abs", fig_w=9.0, fig_h=0.55)
-    save_standalone_legend([
-        colour_swatch(COL_VERMILION, r"$0.7\times$ NN MFP"),
-        colour_swatch(COL_GREY,      "nominal"),
-        colour_swatch(COL_BLUE,      r"$1.3\times$ NN MFP"),
-    ], 3, "legend_mfp", fig_w=9.0, fig_h=0.55)
-    save_standalone_legend(
+    """One combined legend per BW set: metrics (median, mean, 1σ box,
+    whiskers, histogram silhouette) on the left, the variant colour key
+    for that set on the right. Filenames mirror the figure stems
+    (Fig8_FSIvsNoFSI -> legend_Fig8_FSIvsNoFSI)."""
+    save_combined_legend(
+        quantity_handles_hybrid,
+        [colour_swatch(COL_GREY,      "with FSI"),
+         colour_swatch(COL_VERMILION, "no FSI")],
+        "FSI vs no FSI", "legend_Fig8_FSIvsNoFSI",
+    )
+    save_combined_legend(
+        quantity_handles_hybrid,
+        [colour_swatch(COL_VERMILION, r"$\pi_{\rm abs}$ $+31\%$"),
+         colour_swatch(COL_GREY,      "nominal"),
+         colour_swatch(COL_BLUE,      r"$\pi_{\rm abs}$ $-31\%$")],
+        r"$\pi$-absorption $\pm 31\%$", "legend_Fig9_PiAbs",
+    )
+    save_combined_legend(
+        quantity_handles_hybrid,
+        [colour_swatch(COL_VERMILION, r"$0.7\times$ NN MFP"),
+         colour_swatch(COL_GREY,      "nominal"),
+         colour_swatch(COL_BLUE,      r"$1.3\times$ NN MFP")],
+        r"NN mean free path $\pm 30\%$", "legend_Fig10_MFP",
+    )
+    save_combined_legend(
+        quantity_handles_hybrid,
         [colour_swatch(c, f"GENIE G18\\_{t}") for t, c in CASCADE_COLORS.items()],
-        4, "legend_cascade", fig_w=10.0, fig_h=0.55)
-    save_standalone_legend([
-        colour_swatch(COL_GREY,   "EDRMF"),
-        colour_swatch(COL_ORANGE, "RPWIA"),
-    ], 2, "legend_edrmf", fig_w=6.0, fig_h=0.55)
+        "GENIE cascade tunes", "legend_Fig11_GENIE",
+    )
+    save_combined_legend(
+        quantity_handles_hybrid,
+        [colour_swatch(COL_GREY,   "EDRMF"),
+         colour_swatch(COL_ORANGE, "RPWIA")],
+        "NEUT nuclear model", "legend_Fig12_EDRMF",
+    )
 
 
 # ---------------------------------------------------------------------------
