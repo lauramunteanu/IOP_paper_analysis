@@ -341,20 +341,18 @@ def save_standalone_legend(handles, ncol, fname, fig_w=10.0, fig_h=0.6,
     print(f"saved {OUT_DIR}/{fname}.png")
 
 
-def save_combined_legend(metric_handles, color_handles, color_title, fname,
-                         fig_w=10.0, fig_h=2.0):
-    """Per-BW-set legend combining (left) the metric markers shared by every
-    figure and (right) the variant colours specific to this set."""
+def save_strip_legend(handles, fname, fig_w=12.0, fig_h=0.5):
+    """Thin horizontal-strip legend with a single row of items inside a
+    rectangular frame, no title. Designed to drop under a side-by-side
+    numu/numubar BW pair in a LaTeX figure
+    (\\includegraphics[width=\\linewidth]{legend_*.pdf}). Pair
+    legend_metrics with the per-set colour strip
+    (legend_FigN_<stem>) for the full key."""
     fig = plt.figure(figsize=(fig_w, fig_h))
-    leg1 = fig.legend(handles=metric_handles, title="Markers",
-                      loc="center", bbox_to_anchor=(0.30, 0.5),
-                      ncol=1, frameon=True, framealpha=0.9,
-                      title_fontproperties={"weight": "bold"})
-    leg2 = fig.legend(handles=color_handles, title=color_title,
-                      loc="center", bbox_to_anchor=(0.72, 0.5),
-                      ncol=1, frameon=True, framealpha=0.9,
-                      title_fontproperties={"weight": "bold"})
-    fig.add_artist(leg1)  # ensure both legends render (second overrides first by default)
+    fig.legend(handles=handles, loc="center", ncol=len(handles),
+               frameon=True, framealpha=1.0,
+               handletextpad=0.5, columnspacing=2.0,
+               borderpad=0.4, borderaxespad=0.0)
     plt.savefig(f"{OUT_DIR}/{fname}.png", dpi=200, bbox_inches="tight")
     plt.savefig(f"{OUT_DIR}/{fname}.pdf", bbox_inches="tight")
     plt.close(fig)
@@ -610,40 +608,38 @@ quantity_handles_hybrid = [
 ]
 
 def _save_all_legends():
-    """One combined legend per BW set: metrics (median, mean, 1σ box,
-    whiskers, histogram silhouette) on the left, the variant colour key
-    for that set on the right. Filenames mirror the figure stems
-    (Fig8_FSIvsNoFSI -> legend_Fig8_FSIvsNoFSI)."""
-    save_combined_legend(
-        quantity_handles_hybrid,
+    """One shared metrics strip + one colour strip per BW set. Each is a
+    thin framed horizontal legend, no title — meant to be dropped into
+    LaTeX with \\includegraphics[width=\\linewidth]{...} so it spans
+    the side-by-side numu/numubar pair above it."""
+    # Shared markers strip — same across every BW set.
+    save_strip_legend(quantity_handles_hybrid, "legend_metrics", fig_w=14.0)
+    # Per-set colour strips. Filenames mirror the figure stems.
+    save_strip_legend(
         [colour_swatch(COL_GREY,      "with FSI"),
          colour_swatch(COL_VERMILION, "no FSI")],
-        "FSI vs no FSI", "legend_Fig8_FSIvsNoFSI",
+        "legend_Fig8_FSIvsNoFSI", fig_w=8.0,
     )
-    save_combined_legend(
-        quantity_handles_hybrid,
+    save_strip_legend(
         [colour_swatch(COL_VERMILION, r"$\pi_{\rm abs}$ $+31\%$"),
          colour_swatch(COL_GREY,      "nominal"),
          colour_swatch(COL_BLUE,      r"$\pi_{\rm abs}$ $-31\%$")],
-        r"$\pi$-absorption $\pm 31\%$", "legend_Fig9_PiAbs",
+        "legend_Fig9_PiAbs", fig_w=12.0,
     )
-    save_combined_legend(
-        quantity_handles_hybrid,
+    save_strip_legend(
         [colour_swatch(COL_VERMILION, r"$0.7\times$ NN MFP"),
          colour_swatch(COL_GREY,      "nominal"),
          colour_swatch(COL_BLUE,      r"$1.3\times$ NN MFP")],
-        r"NN mean free path $\pm 30\%$", "legend_Fig10_MFP",
+        "legend_Fig10_MFP", fig_w=12.0,
     )
-    save_combined_legend(
-        quantity_handles_hybrid,
+    save_strip_legend(
         [colour_swatch(c, f"GENIE G18\\_{t}") for t, c in CASCADE_COLORS.items()],
-        "GENIE cascade tunes", "legend_Fig11_GENIE",
+        "legend_Fig11_GENIE", fig_w=14.0,
     )
-    save_combined_legend(
-        quantity_handles_hybrid,
+    save_strip_legend(
         [colour_swatch(COL_GREY,   "EDRMF"),
          colour_swatch(COL_ORANGE, "RPWIA")],
-        "NEUT nuclear model", "legend_Fig12_EDRMF",
+        "legend_Fig12_EDRMF", fig_w=8.0,
     )
 
 
