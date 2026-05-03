@@ -2,51 +2,9 @@ from FlatTreeMod import *
 ROOT.gROOT.SetBatch(True)
 
 def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, nominal=False, counts_nom=None):
-  Print(f"Reading: {filename}")
-
-  # ---------------------------------
-  # Open input file and tree
-  # ---------------------------------
-  fin = ROOT.TFile.Open(filename)
-  tree = fin.Get("FlatTree_VARS")
-
-  # ---------------------------------
-  # Event loop
-  # ---------------------------------
-  nentries    = tree.GetEntries()
-  diff_sel    = []
-  Enu_t_sel   = []
-  Enu_QE_sel  = []
-  nevs = 0
-  fScaleFactor = 0
-
-  if(nEvents == -1):
-      nevs = nentries
-  else:
-      nevs = nEvents
-
-  for i in range(nevs):
-
-    tree.GetEntry(i)
-
-    Enu_true = tree.Enu_true*1000
-    Enu_QE   = tree.Enu_QE*1000
-    isCC0pi  = tree.flagCC0pi
-
-    _fscalefactor = tree.fScaleFactor
-    if(_fscalefactor > fScaleFactor):
-       fScaleFactor = _fscalefactor
-
-    if(isCC0pi == True):
-      diff = Enu_QE - Enu_true
-
-      diff_sel.append(diff)
-      Enu_t_sel.append(Enu_true)
-      Enu_QE_sel.append(Enu_QE)
-
-  diff_sel  = np.array(diff_sel)
-  Enu_t_sel = np.array(Enu_t_sel)
-  Enu_QE_sel = np.array(Enu_QE_sel)
+  arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
+  diff_sel = diff_enu_qe_arr(arr, vertex=False)
+  fScaleFactor = float(np.max(arr['fScaleFactor']))
 
   bin_width = 20
   bins = np.arange(-1000, 1000, step=bin_width)
@@ -85,7 +43,6 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, nominal=False, co
 
   if(nominal == True):
       ax_ratio.hlines(1, bins[0], bins[-1], linestyle='--', color=dark_blue)
-      fin.Close()
       return counts
 
   else:
@@ -103,7 +60,6 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, nominal=False, co
 
   ax.set_title(r"HK $\nu_{\mu}$")
 
-  fin.Close()
   return counts
 
 
