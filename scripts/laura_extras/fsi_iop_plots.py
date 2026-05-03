@@ -31,22 +31,15 @@ import sys
 import numpy as np
 import awkward as ak
 import matplotlib.pyplot as plt
-import scienceplots  # noqa: F401
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
-# Share Jake's mtime-keyed cache via FlatTreeMod.load_arrays.
+# Share Jake's mtime-keyed cache via FlatTreeMod.load_arrays. FlatTreeMod also
+# sets the project rcParams (Computer Modern serif, IOP-calibrated font sizes).
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 from FlatTreeMod import load_arrays  # noqa: E402  -- after sys.path tweak
-
-plt.style.use(["science", "notebook"])
-plt.rcParams.update({
-    "text.usetex": True,
-    "font.family": "serif",
-    "font.serif": ["Computer Modern Roman"],
-})
 
 # ---------------------------------------------------------------------------
 # Configuration

@@ -38,10 +38,7 @@ def plot_osc_true(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts
 
 def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
     ## Set axis
-    fig = plt.figure()
-    gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.07)
-    ax = fig.add_subplot(gs[0])
-    ax_ratio = fig.add_subplot(gs[1], sharex=ax)
+    fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(1, 1), hspace=0.07)
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)
 
@@ -154,8 +151,7 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90,1.1)
             plt.savefig("Fig1_plots/Fig1_DUNE_EnuTrue_dm32.pdf")
-    # plt.show()
-
+    plt.close(fig)
     return
 
 

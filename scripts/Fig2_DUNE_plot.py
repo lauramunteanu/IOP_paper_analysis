@@ -9,7 +9,7 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, vertex=False):
     for backward compatibility but should not be set to True for plots — the
     FSI vertex stack is biased by NuWro binding-energy bookkeeping.
     All energies in MeV."""
-    fig, ax = plt.subplots()
+    fig, ax = make_fig('single')
     arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
     bias_wo_list_GeV, bias_with_list_GeV, valid = enu_had_arr(arr, vertex=False)
     # convert to MeV

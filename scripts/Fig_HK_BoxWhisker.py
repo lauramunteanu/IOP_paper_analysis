@@ -137,7 +137,7 @@ HK_NUMUBAR = "../../Remade_April26/HK/HK_numubar_FSI.flat.root"
 DUNE_NUMU  = "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root"
 DUNE_NUMUB = "../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root"
 
-fig, ax = plt.subplots()
+fig, ax = make_fig('box')
 plot_HK_Enu_bias(ax, filename=HK_NUMU,    index=0, label=r"HK $\nu_{\mu}$ no FSI",       nEvents=_events, vertex=True)
 plot_HK_Enu_bias(ax, filename=HK_NUMU,    index=1, label=r"HK $\nu_{\mu}$ FSI",          nEvents=_events, vertex=False)
 plot_HK_Enu_bias(ax, filename=HK_NUMUBAR, index=2, label=r"HK $\bar{\nu}_{\mu}$ no FSI", nEvents=_events, vertex=True)
@@ -171,5 +171,5 @@ plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numub
 
 ax.set_xlabel(r"Absolute $E_{\nu}^{\text{reco}}$ bias [MeV]")
 plt.savefig("BW_plots/BW_test_capped_bias.pdf")
+plt.close(fig)
 outfile.close()
-plt.show()

@@ -31,10 +31,10 @@ def plot_Enu_bias_numu(ax, filename, nEvents):
     return ax
 
 
-fig, ax = plt.subplots()
+fig, ax = make_fig('single')
 fname = "../../Remade_April26/HK/HK_numubar_FSI.flat.root"
 ax = plot_Enu_bias_numu(ax, filename=fname, nEvents=100000)
 plot_Enu_bias_numu_flag(ax, filename=fname, nEvents=100000)
 plt.legend()
 plt.savefig("Fig2_plots/Fig2_HK_CC0pi_flag.pdf")
-plt.show()
+plt.close(fig)

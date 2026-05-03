@@ -3,7 +3,7 @@ from matplotlib.colors import LogNorm
 ROOT.gROOT.SetBatch(True)
 
 def plot_Enu_bias(filename, isNub, nEvents, plot_name, xbins, ybins):
-  fig, ax = plt.subplots()
+  fig, ax = make_fig('single')
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
   flag = is_cc0pi_arr(arr, vertex=False)
   Enu_t_sel  = np.asarray(arr['Enu_true'])[flag] * 1000.0
@@ -76,7 +76,7 @@ def plot_Enu_bias(filename, isNub, nEvents, plot_name, xbins, ybins):
   ax.plot(xcenters, med,  color="white",  lw=1.8, label="median")
   ax.plot(xcenters, mean, color="#882255", lw=1.7, ls="--", label="mean")  # Tol burgundy, CB-friendly, distinguishable from white median
   ax.legend(loc="upper right", frameon=True, facecolor="black",
-            edgecolor="white", labelcolor="white", fontsize=10)
+            edgecolor="white", labelcolor="white")
 
   ax.set_ylabel(r"$E_\nu^{reco} - E_\nu^{true}$ [MeV]")
   ax.set_xlabel(r"$E_\nu^{true}$ [MeV]")
@@ -88,6 +88,7 @@ def plot_Enu_bias(filename, isNub, nEvents, plot_name, xbins, ybins):
     ax.set_title(r"$\nu_{\mu}$")
 
   plt.savefig(f"Fig6_plots/Fig6_HK_EnuRecoBias2D_{plot_name}.pdf")
+  plt.close(fig)
 
 
 _events = -1

@@ -4,7 +4,7 @@ ROOT.gROOT.SetBatch(True)
 
 
 def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, vertex=False):
-  fig, ax = plt.subplots()
+  fig, ax = make_fig('single')
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
   sel = is_cc0pi_arr(arr, vertex=vertex)
   diff_all = (np.asarray(arr['Enu_QE']) - np.asarray(arr['Enu_true'])) * 1000.0

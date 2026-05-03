@@ -3,7 +3,7 @@ from matplotlib.colors import LogNorm
 ROOT.gROOT.SetBatch(True)
 
 def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, xbins, ybins):
-  fig, ax = plt.subplots()
+  fig, ax = make_fig('single')
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
   bias_wo_GeV, bias_with_GeV, valid = enu_had_arr(arr, vertex=False)
   # convert to MeV for unified axes
@@ -83,7 +83,7 @@ def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, xbins, ybins):
   ax.plot(xcenters, med,  color="white",  lw=1.8, label="median")
   ax.plot(xcenters, mean, color="#882255", lw=1.7, ls="--", label="mean")  # Tol burgundy, CB-friendly, distinguishable from white median
   ax.legend(loc="upper right", frameon=True, facecolor="black",
-            edgecolor="white", labelcolor="white", fontsize=10)
+            edgecolor="white", labelcolor="white")
 
   if(withPion==True):
     ax.set_ylabel(r"$E_\nu^{\rm had} - E_\nu^{\rm true}$ [MeV]")
@@ -99,7 +99,7 @@ def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, xbins, ybins):
   ax.set_xlim(300, 6000)
   ax.set_ylim(-1000, 1000)
   plt.savefig(f"Fig6_plots/Fig6_DUNE_EnuRecoBias2D_{plot_name}.pdf")
-  # plt.show()
+  plt.close(fig)
 
 
 _events = -1

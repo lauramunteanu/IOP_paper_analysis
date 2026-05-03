@@ -67,11 +67,7 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, nominal=False, co
 _events = -1
 custom_lines, labels = [], []
 
-fig, (ax, ax_ratio) = plt.subplots(
-    2, 1,
-    sharex=True,
-    gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
-)
+fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
 
 counts_rpwia = plot_Enu_bias_numu(
     ax=ax,
@@ -93,7 +89,7 @@ plot_Enu_bias_numu(
 )
 
 ax.vlines(x=0, ymin=0, ymax=ax.get_ylim()[1], color='black', linestyles='--')
-ax.legend(custom_lines, labels, loc='best', fontsize=15)
+ax.legend(custom_lines, labels, loc='best')
 
 ax.set_ylabel(r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ [cm$^{2}$/nucleon MeV]")
 
@@ -102,3 +98,4 @@ ax_ratio.set_ylabel("ED-RMF/RPWIA")
 ax_ratio.set_ylim(0, 2)
 
 plt.savefig("Fig7_plots/Fig7_HK_EnuRecoFSIBias_EDRMF_numu.pdf")
+plt.close(fig)

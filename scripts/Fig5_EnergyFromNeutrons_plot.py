@@ -61,7 +61,7 @@ def plot_neutron_energy_stacked(ax, filename, nEvents, title_label):
     ax.text(
         0.98, 0.95, title_label,
         transform=ax.transAxes,
-        ha="right", va="top", fontsize=20,
+        ha="right", va="top",
         bbox=dict(facecolor="white", alpha=0.9, edgecolor="black")
     )
 
@@ -82,12 +82,7 @@ SAMPLES = [
 for exp, flav, fname_FSI in SAMPLES:
     fname_noFSI = noFSI_path(fname_FSI)
 
-    fig, (ax_top, ax_bot) = plt.subplots(
-        2, 1,
-        sharex=True, sharey=True,
-        figsize=(8, 8),
-        gridspec_kw={"hspace": 0.08}
-    )
+    fig, (ax_top, ax_bot) = make_fig_stacked('double_stacked', sharex=True, sharey=True, hspace=0.08)
 
     plot_neutron_energy_stacked(
         ax=ax_top, filename=fname_noFSI,
@@ -101,8 +96,8 @@ for exp, flav, fname_FSI in SAMPLES:
 
     handles, labels = ax_top.get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center",
-               bbox_to_anchor=(0.5, 0.85), fontsize=15)
+               bbox_to_anchor=(0.5, 0.92), ncol=4)
 
-    plt.tight_layout()
+    plt.tight_layout(rect=(0, 0, 1, 0.92))
     plt.savefig(f"Fig5_plots/Fig5_{exp}_EnergyFromNeutrons_{flav}_stacked.pdf")
     plt.close(fig)

@@ -105,10 +105,7 @@ plot_configs = [
 
 for cfg in plot_configs:
     custom_lines, labels = [], []
-    fig, (ax, ax_ratio) = plt.subplots(
-        2, 1, sharex=True,
-        gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05},
-    )
+    fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
     # noFSI line from the dedicated noFSI sample (sibling of cfg["file"]).
     counts_nom = plot_Enu_bias_numu(
         ax=ax, ax_ratio=ax_ratio, filename=noFSI_path(cfg["file"]),
@@ -121,7 +118,7 @@ for cfg in plot_configs:
         nominal=False, counts_nom=counts_nom,
     )
 
-    ax.legend(custom_lines, labels, loc='best', fontsize=12)
+    ax.legend(custom_lines, labels, loc='best')
     ax.set_title(cfg["title"])
     ax.set_xlim(-1000, 1000)
     peak = max(float(counts_nom.max()), float(counts_fsi.max()))
@@ -134,3 +131,4 @@ for cfg in plot_configs:
     # y-range left to matplotlib auto-scale
 
     plt.savefig(cfg["outfile"])
+    plt.close(fig)

@@ -64,11 +64,7 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, isNub, nEvents, nominal=False, co
   return counts
 
 
-fig, (ax, ax_ratio) = plt.subplots(
-    2, 1,
-    sharex=True,
-    gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
-)
+fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
 
 _events = -1
 fname_FSI   = "../../Remade_April26/HK/HK_numubar_FSI.flat.root"
@@ -98,6 +94,7 @@ ax_ratio.set_xlim(-1000, 1000)
 # y-range left to matplotlib auto-scale
 
 plt.savefig("Fig3_plots/Enu_bias_FSIvsNoFSI_numubar.pdf")
+plt.close(fig)
 
 
 # fig, ax = plt.subplots()

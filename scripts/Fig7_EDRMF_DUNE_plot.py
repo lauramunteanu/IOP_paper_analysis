@@ -82,11 +82,7 @@ _events = 100000
 # ============================================================
 custom_lines, labels = [], []
 
-fig, (ax, ax_ratio) = plt.subplots(
-    2, 1,
-    sharex=True,
-    gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
-)
+fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
 
 _withPion = False
 
@@ -111,7 +107,7 @@ plot_Enu_bias_numu(
     counts_nom=counts_rpwia_wo
 )
 
-ax.legend(custom_lines, labels, loc='best', fontsize=15)
+ax.legend(custom_lines, labels, loc='best')
 ax.set_title(r"$\nu_{\mu}$, w/o pion mass")
 ax.set_ylabel(
     r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ "
@@ -131,11 +127,7 @@ plt.close(fig)
 # ============================================================
 custom_lines, labels = [], []
 
-fig, (ax, ax_ratio) = plt.subplots(
-    2, 1,
-    sharex=True,
-    gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05}
-)
+fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
 
 _withPion = True
 
@@ -160,7 +152,7 @@ plot_Enu_bias_numu(
     counts_nom=counts_rpwia_with
 )
 
-ax.legend(custom_lines, labels, loc='best', fontsize=15)
+ax.legend(custom_lines, labels, loc='best')
 ax.set_title(r"$\nu_{\mu}$, w/ pion mass")
 ax.set_ylabel(
     r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ "
