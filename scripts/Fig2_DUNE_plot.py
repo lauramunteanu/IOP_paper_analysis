@@ -2,182 +2,73 @@ from FlatTreeMod import *
 from collections import defaultdict
 ROOT.gROOT.SetBatch(True)
 
-def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name):
-    Print(f"Reading: {filename}")
+
+def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, vertex=False):
+    """Caller passes a noFSI sample file when they want the noFSI line; we
+    always read the post-FSI stack (vertex=False). The `vertex` kwarg is kept
+    for backward compatibility but should not be set to True for plots — the
+    FSI vertex stack is biased by NuWro binding-energy bookkeeping.
+    All energies in MeV."""
     fig, ax = plt.subplots()
-    # ---------------------------------
-    # Open input file and tree
-    # ---------------------------------
-    fin = ROOT.TFile.Open(filename)
-    tree = fin.Get("FlatTree_VARS")
+    arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
+    bias_wo_list_GeV, bias_with_list_GeV, valid = enu_had_arr(arr, vertex=False)
+    # convert to MeV
+    bias_wo_list   = bias_wo_list_GeV   * 1000.0
+    bias_with_list = bias_with_list_GeV * 1000.0
+    fScaleFactor = float(np.max(arr['fScaleFactor']))
 
-    bias_wo_list   = []
-    bias_with_list = []
-    bias_wo_by_n   = defaultdict(list)     # neutron breakdown
-    bias_with_by_n = defaultdict(list)
-    # ---------------------------------
-    # Event loop
-    # ---------------------------------
-    nentries = tree.GetEntries()
-    nevs = 0
-    if(nEvents == -1):
-        nevs = nentries
+    n_arr, pdg_arr, _, _, _, _ = particles_arr(arr, vertex=False)
+    has_neutron_all = ak.to_numpy(ak.any(abs(pdg_arr) == 2112, axis=1))
+    has_neutron = has_neutron_all[valid]
+    bias_wo_by_n   = {bool(b): bias_wo_list[has_neutron == b]   for b in (False, True)}
+    bias_with_by_n = {bool(b): bias_with_list[has_neutron == b] for b in (False, True)}
+
+    bin_width = 16.0   # MeV
+    bins = np.arange(-1000, 1000 + bin_width, step=bin_width)
+
+    if not withPiCorr:
+        bias = bias_wo_list
+        bias_by_n = bias_wo_by_n
+        line_color = dark_blue
+        line_label = "w/o pion mass correction"
+        ax.set_xlabel(r"$E_{\nu}^{\rm avail} - E_{\nu}^{\rm true}$ [MeV]")
     else:
-        nevs = nEvents
+        bias = bias_with_list
+        bias_by_n = bias_with_by_n
+        line_color = dark_red
+        line_label = "w/ pion mass"
+        ax.set_xlabel(r"$E_{\nu}^{\rm had} - E_{\nu}^{\rm true}$ [MeV]")
 
-    for i in range(nevs):
-        tree.GetEntry(i)
-        has_neutron = False
-        bad_event = False
-        ELep     = tree.ELep
-        Enu_true = tree.Enu_true
-        nfsp     = tree.nfsp
+    weights_total = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias)
+    ax.hist(bias, bins=bins, histtype='step', weights=weights_total,
+            color=line_color, linewidth=1.5, label=line_label)
 
-        E  = tree.E
-        px = tree.px
-        py = tree.py
-        pz = tree.pz
-        pdg = tree.pdg
-
-        # -------------------------
-        # Lepton energy
-        # -------------------------
-        enuhad_wo   = ELep
-        enuhad_with = ELep
-
-        # Loop over final state particles
-        for j in range(nfsp):
-
-            apdg = abs(int(pdg[j]))
-            Ej   = float(E[j])
-            pxj  = float(px[j])
-            pyj  = float(py[j])
-            pzj  = float(pz[j])
-
-            p2 = pxj*pxj + pyj*pyj + pzj*pzj
-
-            # Check neutron
-            if apdg == 2112:
-                has_neutron = True
-
-            # -------------------------
-            # Remove heavy stuff
-            # -------------------------
-            if apdg > 3000:
-                bad_event = True
-                continue
-
-            # -------------------------
-            # Heavy baryons
-            # -------------------------
-            if 2300 < apdg < 3000:
-                enuhad_wo   += Ej
-                enuhad_with += Ej
-                continue
-
-            # -------------------------
-            # Definition 1
-            # -------------------------
-            if (apdg == 11 or (17 < apdg < 2000)) and apdg != 211:
-
-                enuhad_wo += Ej
-
-            elif apdg in (2212, 211):
-
-                mass2 = Ej*Ej - p2
-
-                if mass2 > 0:
-                    enuhad_wo += Ej - np.sqrt(mass2)
-
-            # -------------------------
-            # Definition 2
-            # -------------------------
-            if (apdg == 11 or (17 < apdg < 2000)):
-
-                enuhad_with += Ej
-
-            elif apdg == 2212:
-
-                mass2 = Ej*Ej - p2
-
-                if mass2 > 0:
-                    enuhad_with += Ej - np.sqrt(mass2)
-
-        # -------------------------
-        # Fill
-        # -------------------------
-        bias_wo   = enuhad_wo   - Enu_true
-        bias_with = enuhad_with - Enu_true
-
-        if(bad_event == False):
-            # Total
-            bias_wo_list.append(bias_wo)
-            bias_with_list.append(bias_with)
-
-            # By neutron content
-            bias_wo_by_n[has_neutron].append(bias_wo)
-            bias_with_by_n[has_neutron].append(bias_with)
-        else:
+    # Per-neutron-content breakdown as step lines (no fill).
+    for has_n, color in ((True, tol_magenta), (False, tol_teal)):
+        vals = bias_by_n[has_n]
+        if len(vals) == 0:
             continue
+        w = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(vals)
+        ax.hist(vals, bins=bins, histtype='step', weights=w,
+                color=color, linewidth=1.4, linestyle="--",
+                label=("With neutron" if has_n else "No neutron"))
 
-
-    # ---------------------------------
-    # Write output
-    # ---------------------------------
-    bias_wo_list = np.array(bias_wo_list)
-    bias_with_list = np.array(bias_with_list)
-    for k in bias_wo_by_n:
-       bias_wo_by_n[k] = np.array(bias_wo_by_n[k])
-       bias_with_by_n[k] = np.array(bias_with_by_n[k])
-
-    styles = {
-        False: dict(color="green", linestyle="--", label="No neutron"),
-        True:  dict(color="purple", linestyle="--",  label="With neutron"),
-    }
-
-    if(withPiCorr == False):
-        ax.hist(bias_wo_list, bins=np.arange(-3, 1, step=0.04), histtype='step', weights=np.ones_like(bias_with_list), color=dark_blue,linewidth=1.5, label = "w/o pion mass correction")
-        custom_lines.append(Line2D([0], [0], color=dark_blue, lw=2, linestyle='-'))
-        labels.append("w/o pion mass correction")
-        ax.set_xlabel(r"$E_{\nu}^{\text{avail}} - E_{\nu}^{\text{true}}$ [GeV]")
-
-    else:
-        ax.hist(bias_with_list, bins=np.arange(-3, 1, step=0.04), histtype='step', weights=np.ones_like(bias_with_list), color=dark_red,linewidth=1.5, label = "w/ pion mass")
-        custom_lines.append(Line2D([0], [0], color=dark_red, lw=2, linestyle='-'))
-        labels.append("w/ pion mass")
-        ax.set_xlabel(r"$E_{\nu}^{\text{had}} - E_{\nu}^{\text{true}}$ [GeV]")
-
-    bins = np.arange(-3, 1, step=0.04)
-    # w/ pion mass correction, by neutron
-    vals_no  = []
-    vals_yes = []
-    if(withPiCorr == False):
-        vals_no  = bias_wo_by_n[False]
-        vals_yes = bias_wo_by_n[True]
-    else:
-        vals_no  = bias_with_by_n[False]
-        vals_yes = bias_with_by_n[True]
-
-    ax.hist(
-        [vals_no, vals_yes],   # list of arrays
-        bins=bins,
-        stacked=True,
-        linewidth=1.5,
-        label=["No neutron", "With neutron"],
-        color=["green", "purple"]
-    )
-    ax.legend()
-
-    plt.gca()
-    ax.set_ylabel("Counts")
+    ax.set_xlim(-1000, 1000)
+    ax.set_ylabel(DSIGMA_DE_LABEL)
+    ax.legend(loc='best')
     plt.savefig(f"Fig2_plots/Fig2_DUNE_EnuRecoBias_{plot_name}.pdf")
-    # plt.show()
-    fin.Close()
+
 
 _events = -1
+NUMU = "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root"
+NUMUB = "../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root"
 
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root", nEvents=_events, withPiCorr=True, plot_name= "WithPion_noFSI_numu")
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root", nEvents=_events, withPiCorr=True, plot_name="WithPion_noFSI_numubar")
+# noFSI line now comes from the dedicated noFSI sample file, not from the
+# vertex stack of the FSI sample (vertex stack is biased by NuWro's binding-
+# energy bookkeeping at cascade exit). vertex=False reads the post-FSI stack;
+# in a noFSI file no cascade ran so post-FSI == no-FSI.
+plot_Enu_bias_numu(filename=noFSI_path(NUMU),  nEvents=_events, withPiCorr=True,  plot_name="WithPion_noFSI_numu",     vertex=False)
+plot_Enu_bias_numu(filename=noFSI_path(NUMUB), nEvents=_events, withPiCorr=True,  plot_name="WithPion_noFSI_numubar", vertex=False)
 
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root", nEvents=_events, withPiCorr=False, plot_name="WithoutPion_noFSI_numu")
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root", nEvents=_events, withPiCorr=False, plot_name="WithoutPion_noFSI_numubar")
+plot_Enu_bias_numu(filename=noFSI_path(NUMU),  nEvents=_events, withPiCorr=False, plot_name="WithoutPion_noFSI_numu",     vertex=False)
+plot_Enu_bias_numu(filename=noFSI_path(NUMUB), nEvents=_events, withPiCorr=False, plot_name="WithoutPion_noFSI_numubar", vertex=False)

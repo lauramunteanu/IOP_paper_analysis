@@ -1,44 +1,45 @@
-"""FSI / pi-abs / cascade box-and-whisker comparison plots for the IOP paper.
+"""Box-and-whisker summary plots for the FSI IOP paper.
 
-Six output figures (PNG + PDF) are written next to this script:
-  pi_abs_{numu,numubar}.{png,pdf}
-      NuWro SF FSI files only.
-      Per row (HK QE, DUNE Tpi, DUNE Epi), three overlaid variants:
-        - nominal (dark grey, solid)
-        - pi_abs +40% (Wong vermilion, dashed)
-        - pi_abs -40% (Wong blue, dotted)
-      Implementation: weight events with |Mode|>2 by 1.4 / 0.6 respectively.
+10 output figures (PNG + PDF) written to OUT_DIR, named in the same FigN_*
+style as the canonical scripts/ folder:
 
-  fsi_compare_{numu,numubar}.{png,pdf}
-      NuWro SF, FSI files vs noFSI files.
-      Per row (HK QE, DUNE Tpi, DUNE Epi), two overlaid variants:
-        - with FSI (dark grey, solid)
-        - no FSI  (Wong vermilion, dashed)
+  Fig8_FSIvsNoFSI_{numu,numubar}    NuWro SF, FSI vs noFSI samples (2 variants)
+  Fig9_PiAbs_{numu,numubar}         NuWro SF FSI, kaskada_piN_abs_scale grid
+                                      (3 variants: 0.69 / nominal / 1.31)
+  Fig10_MFP_{numu,numubar}          NuWro SF FSI, kaskada_NN_mfp_scale grid
+                                      (3 variants: 0.7 / nominal / 1.3)
+  Fig11_GENIE_{numu,numubar}        GENIE NUISFLAT, four cascade tunes
+                                      (10a/b/c/d)
+  Fig12_EDRMF_{numu,numubar}        NEUT EDRMF vs RPWIA  (RPWIA paths are
+                                      placeholders; row is skipped if files
+                                      are missing)
 
-  cascade_compare_{numu,numubar}.{png,pdf}
-      GENIE NUISFLAT, all four tunes (10a/b/c/d).
-      Three row-groups (HK QE, DUNE Tpi, DUNE Epi), 4 cascades per group.
-      Cascade colours: 10a #0072B2 / 10b #D55E00 / 10c #009E73 / 10d #CC79A7.
+Each figure has 3 row-groups (HK Eν_QE, DUNE Eν_avail, DUNE Eν_had). Each row
+in a group is one variant rendered as a translucent histogram silhouette plus
+1σ box (16-84%), faint 90% whiskers (5-95%), median (white circle) and
+weighted mean (white diamond) markers.
 
-Conventions for box and whiskers (all figures):
-  box                       = 1 sigma (16-84%)
-  inner whisker (solid)     = 2 sigma (2.5-97.5%)
-  outer whisker (faint)     = 99% (0.5-99.5%)
-  median tick (solid)       = central percentile
-  mean tick (dotted)        = weighted arithmetic mean
-  weights                   = fScaleFactor (* pi-abs reweight where applicable)
+Path-fallback: if a file is missing, the loader transparently falls back to
+its `.bak.preOPpatch` or `.bak.preNNmfp` sibling. This lets the script run
+against the saved-aside backups while a fresh kaskada_piN_abs_scale /
+kaskada_NN_mfp_scale regen is still in flight on condor.
 
 Set MAX_EVENTS=None for full statistics; small value gives fast layout iteration.
 """
 import os
-import pickle
+import sys
 import numpy as np
 import awkward as ak
-import uproot
 import matplotlib.pyplot as plt
 import scienceplots  # noqa: F401
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
+
+# Share Jake's mtime-keyed cache via FlatTreeMod.load_arrays.
+_SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from FlatTreeMod import load_arrays  # noqa: E402  -- after sys.path tweak
 
 plt.style.use(["science", "notebook"])
 plt.rcParams.update({
@@ -51,15 +52,13 @@ plt.rcParams.update({
 # Configuration
 # ---------------------------------------------------------------------------
 BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"
+NEUT_BASE = "/eos/home-l/lamuntea/FSI_IOP_paper/neut_runs"
 OUT_DIR = "/eos/home-l/lamuntea/FSI_IOP_paper/run_genie_bw"
 MAX_EVENTS = None  # full stats (cache hit after first run)
 
-PI_UP_FACTOR = 1.4
-PI_DOWN_FACTOR = 0.6
 OUTER_ALPHA = 0.35
 
 XMIN_FIXED, XMAX_FIXED = -1000.0, 1000.0  # visible x-axis [MeV]
-# Per-experiment histogram binning matching Jake's Fig3 / Fig4 conventions.
 HK_NBINS, HK_HIST_RANGE   = 200, (-1000.0, 1000.0)   # 10 MeV bins, [-1, +1] GeV
 DUNE_NBINS, DUNE_HIST_RANGE = 400, (-3000.0, 1000.0) # 10 MeV bins, [-3, +1] GeV
 HIST_FILL_ALPHA = 0.22    # translucent histogram silhouette
@@ -73,6 +72,7 @@ def hist_params_for(obs_key):
         return HK_NBINS, HK_HIST_RANGE
     return DUNE_NBINS, DUNE_HIST_RANGE
 
+
 # Wong CB-friendly palette
 COL_GREY = "#444444"
 COL_VERMILION = "#D55E00"
@@ -80,10 +80,29 @@ COL_BLUE = "#0072B2"
 COL_GREEN = "#009E73"
 COL_PURPLE = "#CC79A7"
 COL_SKYBLUE = "#56B4E9"
+COL_ORANGE = "#E69F00"
 
 CASCADE_COLORS = {"10a": COL_BLUE, "10b": COL_VERMILION,
                   "10c": COL_GREEN, "10d": COL_PURPLE}
 
+# ---------------------------------------------------------------------------
+# Path resolver: live files only. Returns None if the file is missing
+# (used for EDRMF/RPWIA placeholders so the corresponding rows skip cleanly).
+# Backup-fallback to .bak.preOPpatch was removed once the OP-patched regen
+# landed on 2026-05-03; if you need to read backups again, restore the
+# fallback or rename the .bak files back into place.
+# ---------------------------------------------------------------------------
+def resolve_path(path):
+    if path and os.path.exists(path):
+        return path
+    if path:
+        print(f"  [resolve_path] WARNING: file missing: {path}")
+    return None
+
+
+# ---------------------------------------------------------------------------
+# File catalogues
+# ---------------------------------------------------------------------------
 NUWRO_HK = {
     "numu": {"FSI":   f"{BASE}/HK/HK_numu_FSI.flat.root",
              "noFSI": f"{BASE}/HK/HK_numu_noFSI.flat.root"},
@@ -96,28 +115,77 @@ NUWRO_DUNE = {
     "numubar": {"FSI":   f"{BASE}/DUNE/DUNE_numub_FSI.flat.root",
                 "noFSI": f"{BASE}/DUNE/DUNE_numub_noFSI.flat.root"},
 }
+
+# kaskada_piN_abs_scale grid (069 = -31%, 131 = +31%). Nominal is the
+# top-level _FSI file (kaskada_piN_abs_scale defaults to 1.0).
+NUWRO_HK_PIABS = {
+    ("numu",    "069"): f"{BASE}/HK/piabs/HK_numu_piabs069_FSI.flat.root",
+    ("numu",    "131"): f"{BASE}/HK/piabs/HK_numu_piabs131_FSI.flat.root",
+    ("numubar", "069"): f"{BASE}/HK/piabs/HK_numubar_piabs069_FSI.flat.root",
+    ("numubar", "131"): f"{BASE}/HK/piabs/HK_numubar_piabs131_FSI.flat.root",
+}
+NUWRO_DUNE_PIABS = {
+    ("numu",    "069"): f"{BASE}/DUNE/piabs/DUNE_numu_piabs069_FSI.flat.root",
+    ("numu",    "131"): f"{BASE}/DUNE/piabs/DUNE_numu_piabs131_FSI.flat.root",
+    ("numubar", "069"): f"{BASE}/DUNE/piabs/DUNE_numub_piabs069_FSI.flat.root",
+    ("numubar", "131"): f"{BASE}/DUNE/piabs/DUNE_numub_piabs131_FSI.flat.root",
+}
+
+# kaskada_NN_mfp_scale grid (070 = 0.7, 130 = 1.3). Nominal is top-level _FSI.
+NUWRO_HK_MFP = {
+    ("numu",    "0p7"): f"{BASE}/HK/ChangeMFP/HK_numu_0p7MFP_FSI.flat.root",
+    ("numu",    "1p3"): f"{BASE}/HK/ChangeMFP/HK_numu_1p3MFP_FSI.flat.root",
+    ("numubar", "0p7"): f"{BASE}/HK/ChangeMFP/HK_numubar_0p7MFP_FSI.flat.root",
+    ("numubar", "1p3"): f"{BASE}/HK/ChangeMFP/HK_numubar_1p3MFP_FSI.flat.root",
+}
+NUWRO_DUNE_MFP = {
+    ("numu",    "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_numu_0p7MFP_FSI.flat.root",
+    ("numu",    "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_numu_1p3MFP_FSI.flat.root",
+    ("numubar", "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_numub_0p7MFP_FSI.flat.root",
+    ("numubar", "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_numub_1p3MFP_FSI.flat.root",
+}
+
+# GENIE 4-tune cascade comparison. Files moved into a GENIE/ subfolder when
+# the project share was reorganised (see scripts/move_genie.sh equivalent).
 GENIE_HK = {
-    ("numu", t):    f"{BASE}/HK/T2KSK_unosc_FHC_numu_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numu", t):    f"{BASE}/HK/GENIE/T2KSK_unosc_FHC_numu_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 }
 GENIE_HK.update({
-    ("numubar", t): f"{BASE}/HK/T2KSK_unosc_RHC_numubar_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numubar", t): f"{BASE}/HK/GENIE/T2KSK_unosc_RHC_numubar_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 })
 GENIE_DUNE = {
-    ("numu", t):    f"{BASE}/DUNE/DUNEFD_unosc_FHC_numu_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numu", t):    f"{BASE}/DUNE/GENIE/DUNEFD_unosc_FHC_numu_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 }
 GENIE_DUNE.update({
-    ("numubar", t): f"{BASE}/DUNE/DUNEFD_unosc_RHC_numubar_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numubar", t): f"{BASE}/DUNE/GENIE/DUNEFD_unosc_RHC_numubar_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 })
 
+# ---------------------------------------------------------------------------
+# NEUT EDRMF vs RPWIA paths -- PLACEHOLDERS.
+# RPWIA flat files are not yet on disk for any sample. EDRMF flat files
+# exist as test trees only. Replace with production paths once available.
+# Each row is rendered only if its NEUT files resolve via resolve_path().
+# ---------------------------------------------------------------------------
+NEUT_EDRMF = {
+    "hk_numu":     f"{NEUT_BASE}/HK_numu_H2O_EDRMF/EDRMF.flat.root",          # PLACEHOLDER
+    "hk_numubar":  f"{NEUT_BASE}/HK_numubar_H2O_EDRMF/EDRMF.flat.root",       # PLACEHOLDER
+    "dune_numu":   f"{NEUT_BASE}/DUNE_numu_Ar40_EDRMF/EDRMF.flat.root",       # PLACEHOLDER
+    "dune_numubar":f"{NEUT_BASE}/DUNE_numubar_Ar40_EDRMF/EDRMF.flat.root",    # PLACEHOLDER
+}
+NEUT_RPWIA = {
+    "hk_numu":     f"{NEUT_BASE}/HK_numu_H2O_RPWIA/RPWIA.flat.root",          # PLACEHOLDER
+    "hk_numubar":  f"{NEUT_BASE}/HK_numubar_H2O_RPWIA/RPWIA.flat.root",       # PLACEHOLDER
+    "dune_numu":   f"{NEUT_BASE}/DUNE_numu_Ar40_RPWIA/RPWIA.flat.root",       # PLACEHOLDER
+    "dune_numubar":f"{NEUT_BASE}/DUNE_numubar_Ar40_RPWIA/RPWIA.flat.root",    # PLACEHOLDER
+}
+
 OBS_LABELS = {
     "hk_qe":   r"HK  $E_{\nu}^{\mathrm{QE}}$",
-    # dune_epi = with_pi_corr=False = charged pi KE only  ->  E_avail
     "dune_epi": r"DUNE  $E_{\nu}^{\mathrm{avail}}$",
-    # dune_tpi = with_pi_corr=True = charged pi full E  ->  E_had
     "dune_tpi": r"DUNE  $E_{\nu}^{\mathrm{had}}$",
 }
 
@@ -157,13 +225,15 @@ def stats(x, w):
 
 
 # ---------------------------------------------------------------------------
-# File readers (one read per (file, observable). Returns (x [MeV], w_nom, mode))
+# File readers — go through FlatTreeMod.load_arrays so the on-disk cache is
+# shared with all the canonical scripts/ figures. load_arrays is keyed on
+# (file path, size, mtime, branch list, max_events) → auto-busts when the
+# underlying ROOT file changes. The bias derivation below stays here in
+# laura_extras (it's specific to this BW summary; not in FlatTreeMod).
 # ---------------------------------------------------------------------------
 def read_hk(path):
     """HK QE bias [MeV] on derived CC0pi (cc=1, no charged-pi, no pi0)."""
-    a = uproot.open(path)["FlatTree_VARS"].arrays(
-        ["Enu_true", "Enu_QE", "cc", "pdg", "fScaleFactor", "Mode"],
-        library="ak", entry_stop=MAX_EVENTS)
+    a = load_arrays(path, max_events=MAX_EVENTS)
     apdg = np.abs(a["pdg"])
     n_chpi = ak.sum(apdg == 211, axis=1)
     n_pi0 = ak.sum(apdg == 111, axis=1)
@@ -177,12 +247,9 @@ def read_hk(path):
 
 def read_dune(path):
     """DUNE calorimetric bias [MeV], two definitions, on CC inclusive.
-    Returns ((x_tpi, x_epi), w_nom, mode).
+    Returns (x_tpi, x_epi, w, mode).
     """
-    a = uproot.open(path)["FlatTree_VARS"].arrays(
-        ["Enu_true", "ELep", "cc", "pdg", "E", "px", "py", "pz",
-         "fScaleFactor", "Mode"],
-        library="ak", entry_stop=MAX_EVENTS)
+    a = load_arrays(path, max_events=MAX_EVENTS)
     apdg = np.abs(a["pdg"])
     p2 = a["px"] * a["px"] + a["py"] * a["py"] + a["pz"] * a["pz"]
     m2 = a["E"] * a["E"] - p2
@@ -195,11 +262,9 @@ def read_dune(path):
     is_chpi = apdg == 211
     is_proton = apdg == 2212
 
-    # Tpi  = with pi corr (charged pi full E)
     contrib_tpi = ak.where(heavy_bar, a["E"],
                   ak.where(is_e | is_mid, a["E"],
                   ak.where(is_proton, KE, 0.0)))
-    # Epi  = without pi corr (charged pi KE only)
     contrib_epi = ak.where(heavy_bar, a["E"],
                   ak.where((is_e | is_mid) & ~is_chpi, a["E"],
                   ak.where(is_proton | is_chpi, KE, 0.0)))
@@ -216,27 +281,27 @@ def read_dune(path):
     return x_tpi, x_epi, w, mode
 
 
-def pi_reweight(w, mode, factor):
-    boost = np.where(np.abs(mode) > 2, factor, 1.0)
-    return w * boost
-
-
 # ---------------------------------------------------------------------------
 # Drawing primitives
 # ---------------------------------------------------------------------------
 def draw_hybrid_hist(ax, y, half, x, w, color,
                      nbins=HK_NBINS, hist_range=HK_HIST_RANGE):
-    """Histogram silhouette (no smoothing) + 1-sigma box outline +
-    faint 90% whiskers + median/mean markers, all in `color`.
+    """Histogram silhouette + 1-sigma box outline + faint 90% whiskers +
+    median/mean markers, all in `color`. Skips drawing if x is empty.
 
-    `hist_range` is the *binning* range (passed to np.histogram); the visual
-    x-axis is set separately by setup_axes().
+    Weights are divided by bin width so the silhouette shape is dσ/dE in
+    arbitrary fScaleFactor / MeV units. The silhouette is then normalised
+    to peak=1 to fit a row, but the underlying shape is now consistent with
+    the validation distributions that show absolute dσ/dE.
     """
+    if x is None or len(x) == 0:
+        return
     s = stats(x, w)
-    counts, edges = np.histogram(x, bins=nbins, range=hist_range, weights=w)
+    bin_width = (hist_range[1] - hist_range[0]) / nbins
+    counts, edges = np.histogram(x, bins=nbins, range=hist_range,
+                                 weights=w / bin_width)
     if counts.max() > 0:
         counts = counts / counts.max()
-    # step polygon mirrored above and below the row centre
     xs_step = np.empty(2 * len(counts))
     xs_step[0::2] = edges[:-1]
     xs_step[1::2] = edges[1:]
@@ -246,12 +311,10 @@ def draw_hybrid_hist(ax, y, half, x, w, color,
     ax.fill(poly_x, poly_y, color=color, alpha=HIST_FILL_ALPHA, linewidth=0,
             zorder=2)
 
-    # 1-sigma box outline (slightly shorter than the silhouette)
     bh = 0.65 * half
     ax.add_patch(Rectangle((s["p16"], y - bh), s["p84"] - s["p16"], 2 * bh,
                            fill=False, edgecolor=color, linewidth=BOX_LW, zorder=4))
 
-    # 90% whiskers (faint)
     wlo, whi = s["p5"], s["p95"]
     ax.plot([wlo, s["p16"]], [y, y], color=color, lw=1.0, alpha=WHISKER_ALPHA, zorder=3)
     ax.plot([s["p84"], whi], [y, y], color=color, lw=1.0, alpha=WHISKER_ALPHA, zorder=3)
@@ -260,28 +323,22 @@ def draw_hybrid_hist(ax, y, half, x, w, color,
     ax.plot([whi] * 2, [y - bh / 3, y + bh / 3], color=color, lw=0.9,
             alpha=WHISKER_ALPHA, zorder=3)
 
-    # markers
     ax.plot(s["median"], y, "o", color="white", markersize=5,
             markeredgecolor=color, markeredgewidth=1.4, zorder=6)
     ax.plot(s["mean"], y, "D", color="white", markersize=4.5,
             markeredgecolor=color, markeredgewidth=1.4, zorder=6)
 
 
-def quantity_legend_handles():
-    return [
-        Line2D([0], [0], color="k", ls="-", lw=2.0, label="median"),
-        Line2D([0], [0], color="k", ls=":", lw=2.0, label="mean"),
-        Rectangle((0, 0), 1, 1, fill=False, edgecolor="k",
-                  label=r"$1\sigma$ (16-84)"),
-        Line2D([0], [0], color="k", ls="-", lw=1.4, label=r"$2\sigma$ (2.5-97.5)"),
-        Line2D([0], [0], color="k", ls="-", lw=1.0, alpha=OUTER_ALPHA,
-               label=r"99\% (0.5-99.5)"),
-    ]
+def setup_axes(ax, n_groups, xlabel, xmin, xmax, group_labels, group_centers):
+    ax.set_xlim(xmin, xmax)
+    ax.set_yticks(group_centers)
+    ax.set_yticklabels(group_labels)
+    ax.axvline(0, color="gray", ls="--", lw=0.7)
+    ax.set_xlabel(xlabel)
 
 
 def save_standalone_legend(handles, ncol, fname, fig_w=10.0, fig_h=0.6,
                            fontsize=10):
-    """Render a legend by itself into its own image file."""
     fig = plt.figure(figsize=(fig_w, fig_h))
     fig.legend(handles=handles, loc="center", ncol=ncol, fontsize=fontsize,
                frameon=True, framealpha=0.9)
@@ -291,202 +348,104 @@ def save_standalone_legend(handles, ncol, fname, fig_w=10.0, fig_h=0.6,
     print(f"saved {OUT_DIR}/{fname}.png")
 
 
-def setup_axes(ax, n_groups, xlabel, xmin, xmax, group_labels, group_centers):
-    ax.set_xlim(xmin, xmax)
-    ax.set_yticks(group_centers)
-    ax.set_yticklabels(group_labels)
-    ax.axvline(0, color="gray", ls="--", lw=0.7)
-    ax.set_xlabel(xlabel)
-    # no background grid (gradient bands carry the visual)
-
-
 # ---------------------------------------------------------------------------
-# Cache: in-process dict + on-disk pickle cache
+# In-process memoisation for the (already-cached) reads.
+# Disk cache is provided by FlatTreeMod.load_arrays at ~/.cache/iop_paper/ —
+# shared with every other script. We just memoise the post-derivation result
+# (x, w, mode) so repeated calls in one Python process don't re-do the
+# CC0π / Tpi / Epi computation on the awkward arrays.
 # ---------------------------------------------------------------------------
 _CACHE = {}
-CACHE_DIR = f"{OUT_DIR}/_cache"
-os.makedirs(CACHE_DIR, exist_ok=True)
-
-
-def _disk_cache(reader, path, kind):
-    base = os.path.basename(path)
-    tag = "all" if MAX_EVENTS is None else f"n{MAX_EVENTS}"
-    cache_path = f"{CACHE_DIR}/{kind}_{base}_{tag}.pkl"
-    if os.path.exists(cache_path):
-        with open(cache_path, "rb") as f:
-            return pickle.load(f)
-    print(f"  reading {kind}: {base}")
-    result = reader(path)
-    with open(cache_path, "wb") as f:
-        pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
-    return result
 
 
 def get_hk(path):
-    if ("hk", path) not in _CACHE:
-        _CACHE[("hk", path)] = _disk_cache(read_hk, path, "hk")
-    return _CACHE[("hk", path)]
+    p = resolve_path(path)
+    if p is None:
+        return None
+    if ("hk", p) not in _CACHE:
+        print(f"  deriving hk from: {os.path.basename(p)}")
+        _CACHE[("hk", p)] = read_hk(p)
+    return _CACHE[("hk", p)]
+
 
 def get_dune(path):
-    if ("dune", path) not in _CACHE:
-        _CACHE[("dune", path)] = _disk_cache(read_dune, path, "dune")
-    return _CACHE[("dune", path)]
+    p = resolve_path(path)
+    if p is None:
+        return None
+    if ("dune", p) not in _CACHE:
+        print(f"  deriving dune from: {os.path.basename(p)}")
+        _CACHE[("dune", p)] = read_dune(p)
+    return _CACHE[("dune", p)]
+
+
+def get_obs(path, obs_kind):
+    """Generic per-observable getter. obs_kind in {hk_qe, dune_epi, dune_tpi}.
+    Returns (x, w) or None if file unresolvable."""
+    if obs_kind == "hk_qe":
+        out = get_hk(path)
+        if out is None: return None
+        x, w, _ = out
+        return x, w
+    out = get_dune(path)
+    if out is None: return None
+    x_tpi, x_epi, w, _ = out
+    return (x_tpi, w) if obs_kind == "dune_tpi" else (x_epi, w)
+
+
+def get_obs_with_mode(path, obs_kind):
+    """Like get_obs but also returns the per-event Mode array.
+    Returns (x, w, mode) or None if file unresolvable. Used by the
+    validation plot to highlight |Mode|==16 (coherent π production)."""
+    if obs_kind == "hk_qe":
+        out = get_hk(path)
+        if out is None: return None
+        return out  # already (x, w, mode)
+    out = get_dune(path)
+    if out is None: return None
+    x_tpi, x_epi, w, mode = out
+    return ((x_tpi, w, mode) if obs_kind == "dune_tpi"
+            else (x_epi, w, mode))
+
+
+def hk_or_dune_path(obs_kind, paths_hk, paths_dune):
+    """Pick HK path for hk_qe rows, DUNE path otherwise."""
+    return paths_hk if obs_kind == "hk_qe" else paths_dune
 
 
 # ---------------------------------------------------------------------------
-# Figure 1 group: pi-abs +/- 40%, NuWro SF FSI files only
+# Generic figure builder. variants: list of (label, color, paths_per_obs)
+# where paths_per_obs is a dict {obs_key: file_path}.
 # ---------------------------------------------------------------------------
-def make_pi_abs_figure(flavour):
-    rows_meta = [
-        ("hk_qe",    NUWRO_HK[flavour]["FSI"],   "hk"),
-        ("dune_epi", NUWRO_DUNE[flavour]["FSI"], "dune_epi"),  # E_avail
-        ("dune_tpi", NUWRO_DUNE[flavour]["FSI"], "dune_tpi"),  # E_had
-    ]
-    triples = []
-    for obs_key, path, kind in rows_meta:
-        if kind == "hk":
-            x, w, mode = get_hk(path)
-        else:
-            x_tpi, x_epi, w, mode = get_dune(path)
-            x = x_tpi if kind == "dune_tpi" else x_epi
-        triples.append((obs_key, x, w, mode))
-
-    n_groups = len(triples)
-    rows_per_group = 3
-    sub_pitch = 0.45
-    group_pitch = rows_per_group * sub_pitch + 0.6
-    half = sub_pitch / 2 * 0.85
-    fig, ax = plt.subplots(figsize=(11.0, group_pitch * n_groups + 1.6))
-
-    group_centers = []
-    for gi, (obs_key, x, w, mode) in enumerate(triples):
-        y0 = gi * group_pitch
-        nbins, hrange = hist_params_for(obs_key)
-        # variant order top -> bottom: +40, nom, -40
-        draw_hybrid_hist(ax, y0 + 0 * sub_pitch, half, x,
-                         pi_reweight(w, mode, PI_UP_FACTOR), COL_VERMILION,
-                         nbins=nbins, hist_range=hrange)
-        draw_hybrid_hist(ax, y0 + 1 * sub_pitch, half, x, w, COL_GREY,
-                         nbins=nbins, hist_range=hrange)
-        draw_hybrid_hist(ax, y0 + 2 * sub_pitch, half, x,
-                         pi_reweight(w, mode, PI_DOWN_FACTOR), COL_BLUE,
-                         nbins=nbins, hist_range=hrange)
-        group_centers.append(y0 + sub_pitch)
-
-    for gi in range(1, n_groups):
-        ax.axhline(gi * group_pitch - sub_pitch / 2, color="k", lw=0.4, alpha=0.3)
-
-    ax.set_ylim(group_pitch * (n_groups - 1) + (rows_per_group - 1) * sub_pitch + 0.4,
-                -0.4)
-
-    ylabels = [OBS_LABELS[k] for k, *_ in triples]
-    setup_axes(ax, n_groups, r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]",
-               XMIN_FIXED, XMAX_FIXED, ylabels, group_centers)
-
-    plt.tight_layout()
-    fname = f"pi_abs_{flavour}"
-    plt.savefig(f"{OUT_DIR}/{fname}.png", dpi=180, bbox_inches="tight")
-    plt.savefig(f"{OUT_DIR}/{fname}.pdf", bbox_inches="tight")
-    plt.close(fig)
-    print(f"saved {OUT_DIR}/{fname}.png")
-    return triples
+OBS_GROUPS = [("hk_qe", "hk"),
+              ("dune_epi", "dune_epi"),
+              ("dune_tpi", "dune_tpi")]
 
 
-# ---------------------------------------------------------------------------
-# Figure 2 group: FSI vs noFSI, NuWro SF
-# ---------------------------------------------------------------------------
-def make_fsi_compare_figure(flavour):
-    pairs = [
-        ("hk_qe",    NUWRO_HK[flavour]["FSI"],   NUWRO_HK[flavour]["noFSI"],   "hk"),
-        ("dune_epi", NUWRO_DUNE[flavour]["FSI"], NUWRO_DUNE[flavour]["noFSI"], "dune_epi"),  # E_avail
-        ("dune_tpi", NUWRO_DUNE[flavour]["FSI"], NUWRO_DUNE[flavour]["noFSI"], "dune_tpi"),  # E_had
-    ]
-    rows = []
-    for obs_key, fsi_path, nofsi_path, kind in pairs:
-        if kind == "hk":
-            x_f, w_f, _ = get_hk(fsi_path)
-            x_n, w_n, _ = get_hk(nofsi_path)
-        else:
-            x_tpi_f, x_epi_f, w_f, _ = get_dune(fsi_path)
-            x_tpi_n, x_epi_n, w_n, _ = get_dune(nofsi_path)
-            x_f = x_tpi_f if kind == "dune_tpi" else x_epi_f
-            x_n = x_tpi_n if kind == "dune_tpi" else x_epi_n
-        rows.append((obs_key, x_f, w_f, x_n, w_n))
-
-    n_groups = len(rows)
-    rows_per_group = 2
-    sub_pitch = 0.45
-    group_pitch = rows_per_group * sub_pitch + 0.6
-    half = sub_pitch / 2 * 0.85
-    fig, ax = plt.subplots(figsize=(11.0, group_pitch * n_groups + 1.6))
-
-    group_centers = []
-    for gi, (obs_key, xf, wf, xn, wn) in enumerate(rows):
-        y0 = gi * group_pitch
-        nbins, hrange = hist_params_for(obs_key)
-        draw_hybrid_hist(ax, y0 + 0 * sub_pitch, half, xf, wf, COL_GREY,
-                         nbins=nbins, hist_range=hrange)
-        draw_hybrid_hist(ax, y0 + 1 * sub_pitch, half, xn, wn, COL_VERMILION,
-                         nbins=nbins, hist_range=hrange)
-        group_centers.append(y0 + 0.5 * sub_pitch)
-
-    for gi in range(1, n_groups):
-        ax.axhline(gi * group_pitch - sub_pitch / 2, color="k", lw=0.4, alpha=0.3)
-
-    ax.set_ylim(group_pitch * (n_groups - 1) + (rows_per_group - 1) * sub_pitch + 0.4,
-                -0.4)
-
-    ylabels = [OBS_LABELS[k] for k, *_ in rows]
-    setup_axes(ax, n_groups, r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]",
-               XMIN_FIXED, XMAX_FIXED, ylabels, group_centers)
-
-    plt.tight_layout()
-    fname = f"fsi_compare_{flavour}"
-    plt.savefig(f"{OUT_DIR}/{fname}.png", dpi=180, bbox_inches="tight")
-    plt.savefig(f"{OUT_DIR}/{fname}.pdf", bbox_inches="tight")
-    plt.close(fig)
-    print(f"saved {OUT_DIR}/{fname}.png")
-    return rows
-
-
-# ---------------------------------------------------------------------------
-# Figure 3 group: Cascade variation, GENIE 10a/b/c/d
-# ---------------------------------------------------------------------------
-def make_cascade_compare_figure(flavour):
-    obs_groups = [("hk_qe", "hk"),
-                  ("dune_epi", "dune_epi"),  # E_avail
-                  ("dune_tpi", "dune_tpi")]  # E_had
-    tunes = ["10a", "10b", "10c", "10d"]
-    rows = []
-    for obs_key, kind in obs_groups:
-        for tune in tunes:
-            if kind == "hk":
-                x, w, _ = get_hk(GENIE_HK[(flavour, tune)])
-            else:
-                x_tpi, x_epi, w, _ = get_dune(GENIE_DUNE[(flavour, tune)])
-                x = x_tpi if kind == "dune_tpi" else x_epi
-            rows.append({"obs_key": obs_key, "tune": tune,
-                         "color": CASCADE_COLORS[tune], "x": x, "w": w})
-
-    obs_keys = [k for k, _ in obs_groups]
+def _make_figure(fname_stem, flavour, variants, group_label_suffix=""):
+    """variants: list of dicts with keys
+        label (str),  color (hex),  paths (dict obs_key -> file_path)
+    Each row in a group is one variant. Skips a variant in a row if the
+    corresponding file unresolvable."""
+    obs_keys = [k for k, _ in OBS_GROUPS]
     n_groups = len(obs_keys)
-    rows_per_group = len(tunes)
+    rows_per_group = len(variants)
     sub_pitch = 0.45
     group_pitch = rows_per_group * sub_pitch + 0.6
     half = sub_pitch / 2 * 0.85
     fig, ax = plt.subplots(figsize=(11.0, group_pitch * n_groups + 1.6))
-
-    by_obs = {ok: [r for r in rows if r["obs_key"] == ok] for ok in obs_keys}
 
     group_centers = []
     for gi, ok in enumerate(obs_keys):
         y0 = gi * group_pitch
         nbins, hrange = hist_params_for(ok)
-        for ti, t in enumerate(tunes):
-            r = next(rr for rr in by_obs[ok] if rr["tune"] == t)
-            draw_hybrid_hist(ax, y0 + ti * sub_pitch, half,
-                             r["x"], r["w"], CASCADE_COLORS[t],
-                             nbins=nbins, hist_range=hrange)
+        for vi, v in enumerate(variants):
+            path = v["paths"].get(ok)
+            res = get_obs(path, ok) if path else None
+            if res is None:
+                continue
+            x, w = res
+            draw_hybrid_hist(ax, y0 + vi * sub_pitch, half, x, w,
+                             v["color"], nbins=nbins, hist_range=hrange)
         group_centers.append(y0 + (rows_per_group - 1) * sub_pitch / 2)
 
     for gi in range(1, n_groups):
@@ -495,35 +454,133 @@ def make_cascade_compare_figure(flavour):
     ax.set_ylim(group_pitch * (n_groups - 1) + (rows_per_group - 1) * sub_pitch + 0.4,
                 -0.4)
 
-    ylabels = [OBS_LABELS[ok] for ok in obs_keys]
+    ylabels = [OBS_LABELS[ok] + group_label_suffix for ok in obs_keys]
     setup_axes(ax, n_groups, r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]",
                XMIN_FIXED, XMAX_FIXED, ylabels, group_centers)
 
     plt.tight_layout()
-    fname = f"cascade_compare_{flavour}"
-    plt.savefig(f"{OUT_DIR}/{fname}.png", dpi=180, bbox_inches="tight")
-    plt.savefig(f"{OUT_DIR}/{fname}.pdf", bbox_inches="tight")
+    out = f"{fname_stem}_{flavour}"
+    plt.savefig(f"{OUT_DIR}/{out}.png", dpi=180, bbox_inches="tight")
+    plt.savefig(f"{OUT_DIR}/{out}.pdf", bbox_inches="tight")
     plt.close(fig)
-    print(f"saved {OUT_DIR}/{fname}.png")
-    return rows
+    print(f"saved {OUT_DIR}/{out}.png")
 
 
 # ---------------------------------------------------------------------------
-# Drive
+# Fig 8 -- FSI vs noFSI, NuWro SF
 # ---------------------------------------------------------------------------
-print(f"MAX_EVENTS = {MAX_EVENTS}\n")
-for flavour in ("numu", "numubar"):
-    print(f"=== {flavour} pi-abs ===")
-    make_pi_abs_figure(flavour)
-    print(f"=== {flavour} FSI vs noFSI ===")
-    make_fsi_compare_figure(flavour)
-    print(f"=== {flavour} cascade ===")
-    make_cascade_compare_figure(flavour)
+def make_fsi_compare_figure(flavour):
+    variants = [
+        {"label": "with FSI", "color": COL_GREY, "paths": {
+            "hk_qe":    NUWRO_HK[flavour]["FSI"],
+            "dune_epi": NUWRO_DUNE[flavour]["FSI"],
+            "dune_tpi": NUWRO_DUNE[flavour]["FSI"],
+        }},
+        {"label": "no FSI", "color": COL_VERMILION, "paths": {
+            "hk_qe":    NUWRO_HK[flavour]["noFSI"],
+            "dune_epi": NUWRO_DUNE[flavour]["noFSI"],
+            "dune_tpi": NUWRO_DUNE[flavour]["noFSI"],
+        }},
+    ]
+    _make_figure("Fig8_FSIvsNoFSI", flavour, variants)
 
+
+# ---------------------------------------------------------------------------
+# Fig 9 -- piabs grid (kaskada_piN_abs_scale = 0.69 / 1.0 / 1.31)
+# ---------------------------------------------------------------------------
+def make_pi_abs_figure(flavour):
+    """Replaces the legacy event-reweight version. Now reads the actual
+    cascade samples (kaskada_piN_abs_scale dial) so the variation is real
+    FSI physics rather than a Mode-dependent reweight."""
+    variants = [
+        {"label": r"$\pi_{\rm abs}$ +31\%", "color": COL_VERMILION, "paths": {
+            "hk_qe":    NUWRO_HK_PIABS[(flavour, "131")],
+            "dune_epi": NUWRO_DUNE_PIABS[(flavour, "131")],
+            "dune_tpi": NUWRO_DUNE_PIABS[(flavour, "131")],
+        }},
+        {"label": "nominal", "color": COL_GREY, "paths": {
+            "hk_qe":    NUWRO_HK[flavour]["FSI"],
+            "dune_epi": NUWRO_DUNE[flavour]["FSI"],
+            "dune_tpi": NUWRO_DUNE[flavour]["FSI"],
+        }},
+        {"label": r"$\pi_{\rm abs}$ -31\%", "color": COL_BLUE, "paths": {
+            "hk_qe":    NUWRO_HK_PIABS[(flavour, "069")],
+            "dune_epi": NUWRO_DUNE_PIABS[(flavour, "069")],
+            "dune_tpi": NUWRO_DUNE_PIABS[(flavour, "069")],
+        }},
+    ]
+    _make_figure("Fig9_PiAbs", flavour, variants)
+
+
+# ---------------------------------------------------------------------------
+# Fig 10 -- NN_mfp grid (kaskada_NN_mfp_scale = 0.7 / 1.0 / 1.3)
+# ---------------------------------------------------------------------------
+def make_mfp_compare_figure(flavour):
+    variants = [
+        {"label": r"$0.7 \times \rm MFP$", "color": COL_VERMILION, "paths": {
+            "hk_qe":    NUWRO_HK_MFP[(flavour, "0p7")],
+            "dune_epi": NUWRO_DUNE_MFP[(flavour, "0p7")],
+            "dune_tpi": NUWRO_DUNE_MFP[(flavour, "0p7")],
+        }},
+        {"label": "nominal", "color": COL_GREY, "paths": {
+            "hk_qe":    NUWRO_HK[flavour]["FSI"],
+            "dune_epi": NUWRO_DUNE[flavour]["FSI"],
+            "dune_tpi": NUWRO_DUNE[flavour]["FSI"],
+        }},
+        {"label": r"$1.3 \times \rm MFP$", "color": COL_BLUE, "paths": {
+            "hk_qe":    NUWRO_HK_MFP[(flavour, "1p3")],
+            "dune_epi": NUWRO_DUNE_MFP[(flavour, "1p3")],
+            "dune_tpi": NUWRO_DUNE_MFP[(flavour, "1p3")],
+        }},
+    ]
+    _make_figure("Fig10_MFP", flavour, variants)
+
+
+# ---------------------------------------------------------------------------
+# Fig 11 -- GENIE cascade tunes (G18_10a/b/c/d)
+# ---------------------------------------------------------------------------
+def make_cascade_compare_figure(flavour):
+    tunes = ["10a", "10b", "10c", "10d"]
+    variants = [
+        {"label": f"G18\\_{t}", "color": CASCADE_COLORS[t], "paths": {
+            "hk_qe":    GENIE_HK[(flavour, t)],
+            "dune_epi": GENIE_DUNE[(flavour, t)],
+            "dune_tpi": GENIE_DUNE[(flavour, t)],
+        }}
+        for t in tunes
+    ]
+    _make_figure("Fig11_GENIE", flavour, variants)
+
+
+# ---------------------------------------------------------------------------
+# Fig 12 -- NEUT EDRMF vs RPWIA (RPWIA paths are PLACEHOLDERS for now)
+# ---------------------------------------------------------------------------
+def make_edrmf_compare_figure(flavour):
+    hk_key = f"hk_{flavour}"
+    dune_key = f"dune_{flavour}"
+    variants = [
+        {"label": "EDRMF", "color": COL_GREY, "paths": {
+            "hk_qe":    NEUT_EDRMF[hk_key],
+            "dune_epi": NEUT_EDRMF[dune_key],
+            "dune_tpi": NEUT_EDRMF[dune_key],
+        }},
+        {"label": "RPWIA", "color": COL_ORANGE, "paths": {
+            "hk_qe":    NEUT_RPWIA[hk_key],
+            "dune_epi": NEUT_RPWIA[dune_key],
+            "dune_tpi": NEUT_RPWIA[dune_key],
+        }},
+    ]
+    _make_figure("Fig12_EDRMF", flavour, variants)
+
+
+# ---------------------------------------------------------------------------
+# Standalone legends (helpers used by main and importable)
+# ---------------------------------------------------------------------------
 def colour_swatch(color, label, alpha=HIST_FILL_ALPHA + 0.10):
     return Line2D([0], [0], marker="s", linestyle="", markersize=14,
                   markerfacecolor=color, markeredgecolor=color,
                   alpha=alpha, label=label)
+
 
 quantity_handles_hybrid = [
     colour_swatch("#777777", "histogram (per-row colour)"),
@@ -539,20 +596,117 @@ quantity_handles_hybrid = [
            markeredgewidth=1.4, label="mean"),
 ]
 
-print("\n=== standalone legends ===")
-save_standalone_legend(quantity_handles_hybrid, 5, "legend_quantity",
-                       fig_w=14.0, fig_h=0.6)
-save_standalone_legend([
-    colour_swatch(COL_GREY,      r"$\pi_{\rm abs}$ nominal"),
-    colour_swatch(COL_VERMILION, r"$\pi_{\rm abs}$ $+40\%$"),
-    colour_swatch(COL_BLUE,      r"$\pi_{\rm abs}$ $-40\%$"),
-], 3, "legend_pi_abs", fig_w=9.0, fig_h=0.55)
-save_standalone_legend([
-    colour_swatch(COL_GREY,      "with FSI"),
-    colour_swatch(COL_VERMILION, "no FSI"),
-], 2, "legend_fsi", fig_w=6.0, fig_h=0.55)
-save_standalone_legend(
-    [colour_swatch(c, f"GENIE G18\\_{t}") for t, c in CASCADE_COLORS.items()],
-    4, "legend_cascade", fig_w=10.0, fig_h=0.55)
+def _save_all_legends():
+    save_standalone_legend(quantity_handles_hybrid, 5, "legend_quantity",
+                           fig_w=14.0, fig_h=0.6)
+    save_standalone_legend([
+        colour_swatch(COL_GREY,      "with FSI"),
+        colour_swatch(COL_VERMILION, "no FSI"),
+    ], 2, "legend_fsi", fig_w=6.0, fig_h=0.55)
+    save_standalone_legend([
+        colour_swatch(COL_VERMILION, r"$\pi_{\rm abs}$ $+31\%$"),
+        colour_swatch(COL_GREY,      "nominal"),
+        colour_swatch(COL_BLUE,      r"$\pi_{\rm abs}$ $-31\%$"),
+    ], 3, "legend_pi_abs", fig_w=9.0, fig_h=0.55)
+    save_standalone_legend([
+        colour_swatch(COL_VERMILION, r"$0.7\times$ NN MFP"),
+        colour_swatch(COL_GREY,      "nominal"),
+        colour_swatch(COL_BLUE,      r"$1.3\times$ NN MFP"),
+    ], 3, "legend_mfp", fig_w=9.0, fig_h=0.55)
+    save_standalone_legend(
+        [colour_swatch(c, f"GENIE G18\\_{t}") for t, c in CASCADE_COLORS.items()],
+        4, "legend_cascade", fig_w=10.0, fig_h=0.55)
+    save_standalone_legend([
+        colour_swatch(COL_GREY,   "EDRMF"),
+        colour_swatch(COL_ORANGE, "RPWIA"),
+    ], 2, "legend_edrmf", fig_w=6.0, fig_h=0.55)
 
-print("\nDONE")
+
+# ---------------------------------------------------------------------------
+# Variant catalogue — exposed so other scripts (validation, table) can walk
+# the exact same set of (category, variant, paths) tuples that drive the BW
+# plots above.
+# ---------------------------------------------------------------------------
+def _hk_or_dune(obs_key, hk_path, dune_path):
+    return hk_path if obs_key == "hk_qe" else dune_path
+
+
+def variants_fsi(flav):
+    return [
+        ("with FSI", COL_GREY, lambda obs: _hk_or_dune(
+            obs, NUWRO_HK[flav]["FSI"], NUWRO_DUNE[flav]["FSI"])),
+        ("no FSI",   COL_VERMILION, lambda obs: _hk_or_dune(
+            obs, NUWRO_HK[flav]["noFSI"], NUWRO_DUNE[flav]["noFSI"])),
+    ]
+
+
+def variants_piabs(flav):
+    # NB: '%' is escaped as '\%' so labels render correctly under
+    # matplotlib's usetex=True (otherwise LaTeX treats % as a comment).
+    return [
+        (r"$\pi_{\rm abs}$ -31\%", COL_BLUE, lambda obs: _hk_or_dune(
+            obs, NUWRO_HK_PIABS[(flav, "069")], NUWRO_DUNE_PIABS[(flav, "069")])),
+        ("nominal", COL_GREY, lambda obs: _hk_or_dune(
+            obs, NUWRO_HK[flav]["FSI"], NUWRO_DUNE[flav]["FSI"])),
+        (r"$\pi_{\rm abs}$ +31\%", COL_VERMILION, lambda obs: _hk_or_dune(
+            obs, NUWRO_HK_PIABS[(flav, "131")], NUWRO_DUNE_PIABS[(flav, "131")])),
+    ]
+
+
+def variants_mfp(flav):
+    return [
+        (r"0.7$\times$ MFP", COL_VERMILION, lambda obs: _hk_or_dune(
+            obs, NUWRO_HK_MFP[(flav, "0p7")], NUWRO_DUNE_MFP[(flav, "0p7")])),
+        ("nominal", COL_GREY, lambda obs: _hk_or_dune(
+            obs, NUWRO_HK[flav]["FSI"], NUWRO_DUNE[flav]["FSI"])),
+        (r"1.3$\times$ MFP", COL_BLUE, lambda obs: _hk_or_dune(
+            obs, NUWRO_HK_MFP[(flav, "1p3")], NUWRO_DUNE_MFP[(flav, "1p3")])),
+    ]
+
+
+def variants_genie(flav):
+    return [
+        (f"G18_{t}", CASCADE_COLORS[t], lambda obs, _t=t: _hk_or_dune(
+            obs, GENIE_HK[(flav, _t)], GENIE_DUNE[(flav, _t)]))
+        for t in ("10a", "10b", "10c", "10d")
+    ]
+
+
+def variants_edrmf(flav):
+    hk_key = f"hk_{flav}" if flav in NEUT_EDRMF else f"hk_{flav}"
+    dune_key = f"dune_{flav}"
+    return [
+        ("EDRMF", COL_GREY, lambda obs: NEUT_EDRMF.get(hk_key) if obs == "hk_qe" else NEUT_EDRMF.get(dune_key)),
+        ("RPWIA", COL_ORANGE, lambda obs: NEUT_RPWIA.get(hk_key) if obs == "hk_qe" else NEUT_RPWIA.get(dune_key)),
+    ]
+
+
+CATEGORY_VARIANTS = [
+    ("FSI vs no FSI",            variants_fsi),
+    (r"$\pi_{\rm abs}$ $\pm 31\%$", variants_piabs),
+    (r"NN MFP $\pm 30\%$",       variants_mfp),
+    ("GENIE cascade 10a-10d",    variants_genie),
+    ("EDRMF vs RPWIA",           variants_edrmf),
+]
+
+
+# ---------------------------------------------------------------------------
+# Main entrypoint — only runs when invoked directly. Other scripts can
+# `from fsi_iop_plots import ...` without triggering the whole regen.
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    print(f"MAX_EVENTS = {MAX_EVENTS}\n")
+    for flavour in ("numu", "numubar"):
+        print(f"=== {flavour} FSI vs noFSI ===")
+        make_fsi_compare_figure(flavour)
+        print(f"=== {flavour} pi-abs (kaskada_piN_abs_scale grid) ===")
+        make_pi_abs_figure(flavour)
+        print(f"=== {flavour} NN_mfp (kaskada_NN_mfp_scale grid) ===")
+        make_mfp_compare_figure(flavour)
+        print(f"=== {flavour} GENIE cascade tunes ===")
+        make_cascade_compare_figure(flavour)
+        print(f"=== {flavour} NEUT EDRMF vs RPWIA (placeholder) ===")
+        make_edrmf_compare_figure(flavour)
+    print("\n=== standalone legends ===")
+    _save_all_legends()
+    print("\nDONE")

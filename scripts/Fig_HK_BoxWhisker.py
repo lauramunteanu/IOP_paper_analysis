@@ -17,38 +17,11 @@ def write_stats(outfile, stats):
     )
 
 
-def plot_HK_Enu_bias(ax, filename, index, label, nEvents):
+def plot_HK_Enu_bias(ax, filename, index, label, nEvents, vertex=False):
   global outfile
-  Print(f"Reading: {filename}")
-  # ---------------------------------
-  # Open input file and tree
-  # ---------------------------------
-  fin = ROOT.TFile.Open(filename)
-  tree = fin.Get("FlatTree_VARS")
-  # ---------------------------------
-  # Event loop
-  # ---------------------------------
-  nentries    = tree.GetEntries()
-  diff_sel    = []
-  nevs = 0
-  if(nEvents == -1):
-      nevs = nentries
-  else:
-      nevs = nEvents
-
-  for i in range(nevs):
-    tree.GetEntry(i)
-    Enu_true = tree.Enu_true*1000
-    Enu_QE   = tree.Enu_QE*1000
-    isCC0pi     = tree.flagCC0pi
-
-    if(isCC0pi == True):
-      diff = Enu_QE - Enu_true
-      if(abs(diff) < 1000):
-        diff_sel.append(diff)
-
-
-  diff_sel = np.array(diff_sel)
+  arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
+  diff_all = diff_enu_qe_arr(arr, vertex=vertex)
+  diff_sel = diff_all[np.abs(diff_all) < 1000]
 
   # Central 68% interval
   q16, q50, q84 = np.percentile(diff_sel, [16, 50, 84])
@@ -95,111 +68,15 @@ def plot_HK_Enu_bias(ax, filename, index, label, nEvents):
       cap.set(color="purple", linewidth=1.2)
 
   ax.invert_yaxis()
-  fin.Close()
 
 
-def plot_DUNE_Enu_bias(ax, filename, index, label, nEvents, withPiCorr):
+def plot_DUNE_Enu_bias(ax, filename, index, label, nEvents, withPiCorr, vertex=False):
     global outfile
-    Print(f"Reading: {filename}")
-    # ---------------------------------
-    # Open input file and tree
-    # ---------------------------------
-    fin = ROOT.TFile.Open(filename)
-    tree = fin.Get("FlatTree_VARS")
-
-    bias_wo_list   = []
-    bias_with_list = []
-    # ---------------------------------
-    # Event loop
-    # ---------------------------------
-    nentries = tree.GetEntries()
-    nevs = 0
-    if(nEvents == -1):
-        nevs = nentries
-    else:
-        nevs = nEvents
-
-    for i in range(nevs):
-        tree.GetEntry(i)
-        bad_event = False
-        ELep     = tree.ELep
-        Enu_true = tree.Enu_true
-        nfsp     = tree.nfsp
-
-        E  = tree.E
-        px = tree.px
-        py = tree.py
-        pz = tree.pz
-        pdg = tree.pdg
-        # -------------------------
-        # Lepton energy
-        # -------------------------
-        enuhad_wo   = ELep
-        enuhad_with = ELep
-        # Loop over final state particles
-        for j in range(nfsp):
-
-            apdg = abs(int(pdg[j]))
-            Ej   = float(E[j])
-            pxj  = float(px[j])
-            pyj  = float(py[j])
-            pzj  = float(pz[j])
-
-            p2 = pxj*pxj + pyj*pyj + pzj*pzj
-            # -------------------------
-            # Remove heavy stuff
-            # -------------------------
-            if apdg > 3000:
-                bad_event = True
-                continue
-            # -------------------------
-            # Heavy baryons
-            # -------------------------
-            if 2300 < apdg < 3000:
-                enuhad_wo   += Ej
-                enuhad_with += Ej
-                continue
-            # -------------------------
-            # Definition 1
-            # -------------------------
-            if (apdg == 11 or (17 < apdg < 2000)) and apdg != 211:
-                enuhad_wo += Ej
-            elif apdg in (2212, 211):
-                mass2 = Ej*Ej - p2
-                if mass2 > 0:
-                    enuhad_wo += Ej - np.sqrt(mass2)
-            # -------------------------
-            # Definition 2
-            # -------------------------
-            if (apdg == 11 or (17 < apdg < 2000)):
-                enuhad_with += Ej
-            elif apdg == 2212:
-                mass2 = Ej*Ej - p2
-                if mass2 > 0:
-                    enuhad_with += Ej - np.sqrt(mass2)
-
-        # -------------------------
-        # Fill
-        # -------------------------
-        bias_wo   = enuhad_wo   - Enu_true
-        bias_with = enuhad_with - Enu_true
-
-        if(bad_event == False):
-            # Total
-            bias_wo_list.append(1000*bias_wo)
-            bias_with_list.append(1000*bias_with)
-        else:
-            continue
-
-    bias_wo_list = np.array(bias_wo_list)
-    bias_with_list = np.array(bias_with_list)
-    fin.Close()
-
-    diff_sel = []
-    if(withPiCorr == True):
-        diff_sel = bias_with_list
-    else:
-        diff_sel = bias_wo_list
+    arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
+    bias_wo_list, bias_with_list, _ = enu_had_arr(arr, vertex=vertex)
+    bias_wo_list = bias_wo_list * 1000.0     # GeV -> MeV (keep parity with Jake's plot)
+    bias_with_list = bias_with_list * 1000.0
+    diff_sel = bias_with_list if withPiCorr else bias_wo_list
     
     # Central 68% interval
     q16, q50, q84 = np.percentile(diff_sel, [16, 50, 84])
@@ -253,37 +130,44 @@ def plot_DUNE_Enu_bias(ax, filename, index, label, nEvents, withPiCorr):
 
 _events = 100000
 
+# All FSI/noFSI pairs come from the SAME FSI files; vertex=True gives the
+# 'no FSI' rows (correlated stat errors with the FSI rows).
+HK_NUMU    = "../../Remade_April26/HK/HK_numu_FSI.flat.root"
+HK_NUMUBAR = "../../Remade_April26/HK/HK_numubar_FSI.flat.root"
+DUNE_NUMU  = "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root"
+DUNE_NUMUB = "../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root"
+
 fig, ax = plt.subplots()
-plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/HK_numu_noFSI.flat.root", index=0, label = r"HK $\nu_{\mu}$ no FSI", nEvents=_events)
-plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/HK_numu_FSI.flat.root", index=1, label = r"HK $\nu_{\mu}$ FSI", nEvents=_events)
-plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/HK_numubar_noFSI.flat.root", index=2, label = r"HK $\bar{\nu}_{\mu}$ no FSI", nEvents=_events)
-plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/HK_numubar_FSI.flat.root", index=3, label = r"HK $\bar{\nu}_{\mu}$ FSI", nEvents=_events)
+plot_HK_Enu_bias(ax, filename=HK_NUMU,    index=0, label=r"HK $\nu_{\mu}$ no FSI",       nEvents=_events, vertex=True)
+plot_HK_Enu_bias(ax, filename=HK_NUMU,    index=1, label=r"HK $\nu_{\mu}$ FSI",          nEvents=_events, vertex=False)
+plot_HK_Enu_bias(ax, filename=HK_NUMUBAR, index=2, label=r"HK $\bar{\nu}_{\mu}$ no FSI", nEvents=_events, vertex=True)
+plot_HK_Enu_bias(ax, filename=HK_NUMUBAR, index=3, label=r"HK $\bar{\nu}_{\mu}$ FSI",    nEvents=_events, vertex=False)
 
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root",  index=4, label = r"DUNE $\nu_{\mu}$ no FSI $T_{\pi}$", nEvents=_events, withPiCorr=True)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root", index=5, label = r"DUNE $\bar{\nu}_{\mu}$ no FSI $T_{\pi}$", nEvents=_events, withPiCorr=True)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root",  index=6, label = r"DUNE $\nu_{\mu}$ FSI $T_{\pi}$", nEvents=_events, withPiCorr=True)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root", index=7, label = r"DUNE $\bar{\nu}_{\mu}$ FSI $T_{\pi}$", nEvents=_events, withPiCorr=True)
+plot_DUNE_Enu_bias(ax, filename=DUNE_NUMU,  index=4, label=r"DUNE $\nu_{\mu}$ no FSI $T_{\pi}$",       nEvents=_events, withPiCorr=True,  vertex=True)
+plot_DUNE_Enu_bias(ax, filename=DUNE_NUMUB, index=5, label=r"DUNE $\bar{\nu}_{\mu}$ no FSI $T_{\pi}$", nEvents=_events, withPiCorr=True,  vertex=True)
+plot_DUNE_Enu_bias(ax, filename=DUNE_NUMU,  index=6, label=r"DUNE $\nu_{\mu}$ FSI $T_{\pi}$",          nEvents=_events, withPiCorr=True,  vertex=False)
+plot_DUNE_Enu_bias(ax, filename=DUNE_NUMUB, index=7, label=r"DUNE $\bar{\nu}_{\mu}$ FSI $T_{\pi}$",    nEvents=_events, withPiCorr=True,  vertex=False)
 
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/DUNE_numu_noFSI.flat.root",  index=8, label = r"DUNE $\nu_{\mu}$ no FSI $E_{\pi}$", nEvents=_events, withPiCorr=False)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/DUNE_numub_noFSI.flat.root", index=9, label = r"DUNE $\bar{\nu}_{\mu}$ no FSI $E_{\pi}$", nEvents=_events, withPiCorr=False)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root",  index=10, label = r"DUNE $\nu_{\mu}$ FSI $E_{\pi}$", nEvents=_events, withPiCorr=False)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root", index=11, label = r"DUNE $\bar{\nu}_{\mu}$ FSI $E_{\pi}$", nEvents=_events, withPiCorr=False)
+plot_DUNE_Enu_bias(ax, filename=DUNE_NUMU,  index=8,  label=r"DUNE $\nu_{\mu}$ no FSI $E_{\pi}$",       nEvents=_events, withPiCorr=False, vertex=True)
+plot_DUNE_Enu_bias(ax, filename=DUNE_NUMUB, index=9,  label=r"DUNE $\bar{\nu}_{\mu}$ no FSI $E_{\pi}$", nEvents=_events, withPiCorr=False, vertex=True)
+plot_DUNE_Enu_bias(ax, filename=DUNE_NUMU,  index=10, label=r"DUNE $\nu_{\mu}$ FSI $E_{\pi}$",          nEvents=_events, withPiCorr=False, vertex=False)
+plot_DUNE_Enu_bias(ax, filename=DUNE_NUMUB, index=11, label=r"DUNE $\bar{\nu}_{\mu}$ FSI $E_{\pi}$",    nEvents=_events, withPiCorr=False, vertex=False)
 
 ## Increase FSI
-plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/plus30_FSI/HK_numu_0p7MFP_FSI.flat.root", index=12, label = r"HK $\nu_{\mu}$ 0.7x MFP", nEvents=_events)
-plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/plus30_FSI/HK_numu_1p3MFP_FSI.flat.root", index=13, label = r"HK $\nu_{\mu}$ 1.3x MFP", nEvents=_events)
-plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/plus30_FSI/HK_numubar_0p7MFP_FSI.flat.root", index=14, label = r"HK $\bar{\nu}_{\mu}$ 0.7x MFP", nEvents=_events)
-plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/plus30_FSI/HK_numubar_1p3MFP_FSI.flat.root", index=15, label = r"HK $\bar{\nu}_{\mu}$ 1.3x MFP", nEvents=_events)
+plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/ChangeMFP/HK_numu_0p7MFP_FSI.flat.root", index=12, label = r"HK $\nu_{\mu}$ 0.7x MFP", nEvents=_events)
+plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/ChangeMFP/HK_numu_1p3MFP_FSI.flat.root", index=13, label = r"HK $\nu_{\mu}$ 1.3x MFP", nEvents=_events)
+plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/ChangeMFP/HK_numubar_0p7MFP_FSI.flat.root", index=14, label = r"HK $\bar{\nu}_{\mu}$ 0.7x MFP", nEvents=_events)
+plot_HK_Enu_bias(ax, filename="../../Remade_April26/HK/ChangeMFP/HK_numubar_1p3MFP_FSI.flat.root", index=15, label = r"HK $\bar{\nu}_{\mu}$ 1.3x MFP", nEvents=_events)
 
 plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numu_0p7MFP_FSI.flat.root",  index=16, label = r"DUNE $\nu_{\mu}$ 0.7x MFP $T_{\pi}$", nEvents=_events, withPiCorr=True)
 plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numub_0p7MFP_FSI.flat.root", index=17, label = r"DUNE $\bar{\nu}_{\mu}$ 0.7x MFP $T_{\pi}$", nEvents=_events, withPiCorr=True)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numu_1p3MFP_FSI.flat.root",  index=18, label = r"DUNE $\nu_{\mu}$ 1.3x MFP $T_{\pi}$", nEvents=_events, withPiCorr=True)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numub_1p3MFP_FSI.flat.root", index=19, label = r"DUNE $\bar{\nu}_{\mu}$ 1.3x MFP $T_{\pi}$", nEvents=_events, withPiCorr=True)
+# plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numu_1p3MFP_FSI.flat.root",  index=18, label = r"DUNE $\nu_{\mu}$ 1.3x MFP $T_{\pi}$", nEvents=_events, withPiCorr=True)  # 1p3MFP not in project share
+# plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numub_1p3MFP_FSI.flat.root", index=19, label = r"DUNE $\bar{\nu}_{\mu}$ 1.3x MFP $T_{\pi}$", nEvents=_events, withPiCorr=True)  # 1p3MFP not in project share
 
 plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numu_0p7MFP_FSI.flat.root",  index=20, label = r"DUNE $\nu_{\mu}$ 0.7x MFP $E_{\pi}$", nEvents=_events, withPiCorr=False)
 plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numub_0p7MFP_FSI.flat.root", index=21, label = r"DUNE $\bar{\nu}_{\mu}$ 0.7x MFP $E_{\pi}$", nEvents=_events, withPiCorr=False)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numu_1p3MFP_FSI.flat.root",  index=22, label = r"DUNE $\nu_{\mu}$ 1.3x MFP $E_{\pi}$", nEvents=_events, withPiCorr=False)
-plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numub_1p3MFP_FSI.flat.root", index=23, label = r"DUNE $\bar{\nu}_{\mu}$ 1.3x MFP $E_{\pi}$", nEvents=_events, withPiCorr=False)
+# plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numu_1p3MFP_FSI.flat.root",  index=22, label = r"DUNE $\nu_{\mu}$ 1.3x MFP $E_{\pi}$", nEvents=_events, withPiCorr=False)  # 1p3MFP not in project share
+# plot_DUNE_Enu_bias(ax, filename="../../Remade_April26/DUNE/plus30_FSI/DUNE_numub_1p3MFP_FSI.flat.root", index=23, label = r"DUNE $\bar{\nu}_{\mu}$ 1.3x MFP $E_{\pi}$", nEvents=_events, withPiCorr=False)  # 1p3MFP not in project share
 
 ax.set_xlabel(r"Absolute $E_{\nu}^{\text{reco}}$ bias [MeV]")
 plt.savefig("BW_plots/BW_test_capped_bias.pdf")
