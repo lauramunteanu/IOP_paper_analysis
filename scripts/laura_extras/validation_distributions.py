@@ -44,7 +44,7 @@ def plot_one_page(pdf, *, cat_label, flav, obs_key, var_label, color, source_pat
     `source_path` may be None or unresolvable — in that case prints a
     placeholder page so the PDF still has the slot."""
     nbins, hrange = hist_params_for(obs_key)
-    fig, ax = plt.subplots(figsize=(8.5, 5.5))
+    fig, ax = plt.subplots(figsize=(7.0, 4.5))
 
     resolved = resolve_path(source_path)
     title_top = (f"{cat_label}  |  {NU_LABELS[flav]}  |  {OBS_LABELS[obs_key]}  |  "
@@ -52,9 +52,9 @@ def plot_one_page(pdf, *, cat_label, flav, obs_key, var_label, color, source_pat
     if resolved is None:
         ax.text(0.5, 0.5, f"file not found:\n{source_path or '(unset)'}",
                 ha="center", va="center", transform=ax.transAxes,
-                fontsize=11, color="red")
+                color="red")
         ax.set_xticks([]); ax.set_yticks([])
-        fig.suptitle(title_top + "\n(missing)", fontsize=11)
+        fig.suptitle(title_top + "\n(missing)")
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
         return
@@ -63,8 +63,8 @@ def plot_one_page(pdf, *, cat_label, flav, obs_key, var_label, color, source_pat
     if res is None or len(res[0]) == 0:
         ax.text(0.5, 0.5, "no events passed selection",
                 ha="center", va="center", transform=ax.transAxes,
-                fontsize=11, color="red")
-        fig.suptitle(title_top, fontsize=11)
+                color="red")
+        fig.suptitle(title_top)
         pdf.savefig(fig, bbox_inches="tight")
         plt.close(fig)
         return
@@ -140,11 +140,11 @@ def plot_one_page(pdf, *, cat_label, flav, obs_key, var_label, color, source_pat
     ax.set_ylim(0, ymax * 1.15)
     ax.set_xlabel(r"$E_\nu^{\rm reco} - E_\nu^{\rm true}$ [MeV]")
     ax.set_ylabel(r"d$\sigma$/d$E$  [arb. fScaleFactor units / MeV]")
-    ax.legend(loc="upper right", fontsize=9, framealpha=0.9)
+    ax.legend(loc="upper right", framealpha=0.9)
 
     # Filename printed at the top of the page (over the figure title).
     fig.suptitle(title_top + "\n" + os.path.basename(resolved),
-                 fontsize=10, family="monospace")
+                 family="monospace")
 
     # Stats text block. NOTE: matplotlib renders strings with text.usetex=True
     # by default in this style, so any literal `%` must be escaped as `\%`

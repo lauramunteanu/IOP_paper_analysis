@@ -331,7 +331,7 @@ def setup_axes(ax, n_groups, xlabel, xmin, xmax, group_labels, group_centers):
 
 
 def save_standalone_legend(handles, ncol, fname, fig_w=10.0, fig_h=0.6,
-                           fontsize=10):
+                           fontsize=None):
     fig = plt.figure(figsize=(fig_w, fig_h))
     fig.legend(handles=handles, loc="center", ncol=ncol, fontsize=fontsize,
                frameon=True, framealpha=0.9)

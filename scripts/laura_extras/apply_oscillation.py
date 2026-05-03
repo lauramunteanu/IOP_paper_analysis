@@ -15,21 +15,22 @@ Outputs (next to this script):
   + a textual summary table per sample.
 """
 import os
+import sys
 import numpy as np
 import awkward as ak
 import uproot
 import matplotlib.pyplot as plt
-import scienceplots  # noqa: F401
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
-import ROOT
 
-plt.style.use(["science", "notebook"])
-plt.rcParams.update({
-    "text.usetex": True,
-    "font.family": "serif",
-    "font.serif": ["Computer Modern Roman"],
-})
+# Pull in the FSI-IOP shared style + OscProb load via FlatTreeMod (located in
+# the parent scripts/ directory). FlatTreeMod sets the project rcParams and
+# loads libOscProb.so via $OSCPROB_LIB.
+_SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+import FlatTreeMod  # noqa: F401  -- side-effect: rcParams + OscProb load
+import ROOT
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -55,9 +56,8 @@ COL_NOM = "#444444"
 COL_OSC = "#0072B2"
 
 # ---------------------------------------------------------------------------
-# OscProb setup
+# OscProb setup (libOscProb already loaded by FlatTreeMod)
 # ---------------------------------------------------------------------------
-ROOT.gSystem.Load("libOscProb.so")
 pmns = ROOT.OscProb.PMNS_Fast()
 pmns.SetMix(PMNS["theta12"], PMNS["theta23"], PMNS["theta13"], PMNS["deltaCP"])
 pmns.SetDeltaMsqrs(PMNS["dm21"], PMNS["dm32"])
@@ -249,7 +249,7 @@ def make_panel(rows, fname, title):
     ax.axvline(0, color="gray", ls="--", lw=0.7)
     ax.set_xlim(XMIN_FIXED, XMAX_FIXED)
     ax.set_xlabel(r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]")
-    ax.set_title(title, fontsize=11)
+    ax.set_title(title)
     plt.tight_layout()
     plt.savefig(f"{OUT_DIR}/{fname}.png", dpi=180, bbox_inches="tight")
     plt.savefig(f"{OUT_DIR}/{fname}.pdf", bbox_inches="tight")
