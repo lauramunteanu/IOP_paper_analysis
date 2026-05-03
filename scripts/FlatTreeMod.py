@@ -23,7 +23,34 @@ except Exception:
 plt.rcParams.update({
     "text.usetex": True,
     "font.family": "serif",
-    "font.serif": ["Computer Modern Roman"]})
+    "font.serif": ["Computer Modern Roman"],
+    "axes.linewidth": 1.0,
+    "axes.labelsize": 13,
+    "axes.titlesize": 12,
+    "xtick.labelsize": 11,
+    "ytick.labelsize": 11,
+    "xtick.direction": "in",
+    "ytick.direction": "in",
+    "xtick.top": True,
+    "ytick.right": True,
+    "xtick.major.size": 5,
+    "ytick.major.size": 5,
+    "xtick.minor.size": 3,
+    "ytick.minor.size": 3,
+    "xtick.minor.visible": True,
+    "ytick.minor.visible": True,
+    "legend.fontsize": 10,
+    "legend.frameon": False,
+    "lines.linewidth": 1.6,
+    "figure.dpi": 110,
+    "savefig.dpi": 200,
+    "savefig.bbox": "tight",
+    # Force scientific notation for very small/large numbers (without these,
+    # matplotlib's autoscale can fail on differential-xsec values ~1e-42).
+    "axes.formatter.useoffset": False,
+    "axes.formatter.use_mathtext": True,
+    "axes.formatter.limits": (-3, 4),    # use sci notation only for |x| < 1e-3 or |x| >= 1e4 (so axes that go up to ~9999 stay plain)
+})
 
 def Log(string):
     print("\033[94m[LOG]\033[0m :: ", string)
@@ -39,17 +66,42 @@ def Print(string):
 
 
 # ----------------------------------------
-# Colour schemes
+# Colour schemes — Paul Tol "vibrant" palette (CB-friendly, softer than Wong).
+# Legacy names (dark_red, dark_blue, ...) are aliased to the new palette so
+# existing references resolve automatically.
 # ----------------------------------------
-light_blue = '#56B4E9'
-medium_blue = '#0072B2'
-dark_blue = '#084594'
-light_red = '#E69F00'
-dark_red = '#D55E00'
-light_green = '#009E73'
-dark_green = '#007D4B'
-vivid_purple = '#CC79A7'
-bright_yellow = '#F0E442'
+tol_red     = '#CC3311'
+tol_blue    = '#0077BB'
+tol_orange  = '#EE7733'
+tol_teal    = '#009988'
+tol_magenta = '#EE3377'
+tol_cyan    = '#33BBEE'
+tol_grey    = '#BBBBBB'
+tol_dark    = '#555555'
+
+# Paul Tol "muted" palette — 8 CB-friendly colours for categorical
+# breakdowns (e.g. by-mode, by-neutron-multiplicity stacked plots).
+TOL_MUTED = [
+    '#CC6677',  # rose
+    '#332288',  # indigo
+    '#DDCC77',  # sand
+    '#117733',  # dark green
+    '#88CCEE',  # light blue
+    '#44AA99',  # teal
+    '#999933',  # olive
+    '#882255',  # wine
+]
+
+# Legacy aliases (don't break existing imports across the repo):
+dark_red       = tol_red
+dark_blue      = tol_blue
+light_blue     = tol_cyan
+medium_blue    = tol_blue
+light_red      = tol_orange
+light_green    = tol_teal
+dark_green     = '#117733'    # Tol muted dark green (replaces older olive)
+vivid_purple   = tol_magenta
+bright_yellow  = '#F0E442'
 
 # ----------------------------------------
 # Load OscProb shared library
@@ -201,11 +253,394 @@ PAPER_BINNING = dict(
 )
 
 
+# Global scale for dσ/dE histograms. Multiply weights by DSIGMA_DE_SCALE
+# before histogramming and label the axis with DSIGMA_DE_LABEL — this works
+# around matplotlib's autoscale failure on raw values ~1e-42 cm²/nucleon/MeV.
+DSIGMA_DE_SCALE = 1.0e42
+DSIGMA_DE_LABEL = r"$\mathrm{d}\sigma/\mathrm{d}E$ [10$^{-42}$ cm$^2$/nucleon/MeV]"
+
+
+# =============================================================================
+# Two scaling modes:
+#   - bias plots             -> dσ/dE   (cm²/nucleon/MeV × 10⁴²)
+#   - Enu-spectrum plots     -> Events/MeV (integrate to EXPECTED_EVENTS)
+# Use the helper that matches the plot kind. Don't mix.
+# =============================================================================
+
+EXPECTED_EVENTS = {
+    ('DUNE', 'numu'):    15000,
+    ('DUNE', 'numubar'):  9000,
+    ('DUNE', 'nue'):      1500,
+    ('DUNE', 'nuebar'):   1000,
+    ('HK',   'numu'):     9000,
+    ('HK',   'numubar'):  7000,
+    ('HK',   'nue'):      2000,
+    ('HK',   'nuebar'):   1000,
+}
+
+EVENT_RATE_LABEL = r"Events / MeV"
+
+
+def detect_exp_flav(filename):
+    """Auto-detect ('DUNE'|'HK', 'numu'|'numubar'|'nue'|'nuebar') from a path."""
+    fn = filename.lower()
+    exp = 'DUNE' if 'dune' in fn else 'HK'
+    if 'nuebar' in fn:
+        flav = 'nuebar'
+    elif 'nue' in fn:
+        flav = 'nue'
+    elif 'numubar' in fn or '/dune_numub_' in fn or '_numub_' in fn:
+        flav = 'numubar'
+    else:
+        flav = 'numu'
+    return exp, flav
+
+
+def make_weights_dxsec(arr, bin_width, fScaleFactor=None):
+    """Per-event constant weight for differential cross-section bias plots.
+    Returns fScaleFactor * DSIGMA_DE_SCALE / bin_width — multiply by
+    np.ones_like(observable) to get the per-event array. Y-axis is
+    dσ/dE [10⁻⁴² cm²/nucleon/MeV] (use DSIGMA_DE_LABEL).
+    """
+    if fScaleFactor is None:
+        fScaleFactor = float(np.max(arr['fScaleFactor']))
+    return fScaleFactor * DSIGMA_DE_SCALE / bin_width
+
+
+def make_weights_event_rate(arr, filename, bin_width):
+    """Per-event constant weight for Enu-spectrum plots scaled to expected
+    event yield. Returns target / N_gen / bin_width — caller multiplies by
+    np.ones_like(observable). Y-axis is 'Events / MeV' (EVENT_RATE_LABEL).
+    For oscillated spectra, multiply this scalar by the per-event probability
+    array before passing to ax.hist as weights.
+    """
+    exp, flav = detect_exp_flav(filename)
+    target = EXPECTED_EVENTS[(exp, flav)]
+    n_gen  = len(arr['Enu_true'])
+    return target / n_gen / bin_width
+
+
+def expected_events(filename, channel=None):
+    """Lookup EXPECTED_EVENTS using auto-detected (exp, flav) from filename,
+    or override the flavour with ``channel`` (for oscillated spectra where
+    the target flavour differs from the source: e.g., νμ→νe at HK uses
+    EXPECTED_EVENTS[('HK','nue')])."""
+    exp, flav = detect_exp_flav(filename)
+    if channel is not None:
+        flav = channel
+    return EXPECTED_EVENTS[(exp, flav)]
+
+
 def paper_bins(kind):
     """Return numpy bin edges for a named binning ('HK_bias_MeV' or
     'DUNE_bias_GeV')."""
     xmin, xmax, w = PAPER_BINNING[kind]
     return np.arange(xmin, xmax + 1e-9, step=w)
+
+
+# =============================================================================
+# Pre/post-FSI particle access. NUISFLAT trees carry both:
+#   post-FSI:  nfsp,   pdg,      E,      px,      py,      pz
+#   vertex:    nvertp, pdg_vert, E_vert, px_vert, py_vert, pz_vert
+#
+# IMPORTANT: vertex=True does NOT give a clean "noFSI" view. NuWro applies a
+# binding-energy / separation-energy correction (Ef + kaskada_w, ~25-40 MeV
+# per outgoing nucleon) at cascade exit, which means vertex and post-FSI
+# energies disagree by tens of MeV per nucleon even when no rescattering
+# occurred. For "noFSI" comparisons in published plots, ALWAYS load the
+# corresponding noFSI sample file (use noFSI_path(...)) and call with
+# vertex=False. vertex=True is kept for diagnostics / particle-stack
+# inspection only.
+# =============================================================================
+
+
+def noFSI_path(filename):
+    """Map a *_FSI.flat.root path to its *_noFSI.flat.root sibling."""
+    if "_FSI.flat.root" not in filename:
+        raise ValueError(f"Expected *_FSI.flat.root path, got: {filename}")
+    return filename.replace("_FSI.flat.root", "_noFSI.flat.root")
+
+def particles(tree, *, vertex=False):
+    """Return (n, pdg, E, px, py, pz) arrays from a NUISFLAT entry."""
+    if vertex:
+        return (tree.nvertp, tree.pdg_vert, tree.E_vert,
+                tree.px_vert, tree.py_vert, tree.pz_vert)
+    return (tree.nfsp, tree.pdg, tree.E, tree.px, tree.py, tree.pz)
+
+
+def is_cc0pi(tree, *, vertex=False):
+    """CC + no charged-pi/pi0 in the chosen particle set. Computed directly
+    from the pdg stack (post-FSI for vertex=False, pdg_vert for vertex=True)
+    so the helper works on any NUISFLAT file regardless of whether the
+    generator wrote a `flagCC0pi` branch."""
+    if not tree.cc:
+        return False
+    n, pdg, _, _, _, _ = particles(tree, vertex=vertex)
+    for j in range(n):
+        a = abs(int(pdg[j]))
+        if a == 211 or a == 111:
+            return False
+    return True
+
+
+# =============================================================================
+# Uproot + pickle cache.
+# Replaces the slow PyROOT GetEntry loop. ``load_arrays(filename, branches)``
+# returns a dict of awkward/numpy arrays for the requested branches and caches
+# the result on disk (keyed on file mtime + branch list) so subsequent runs
+# read from pickle in <1 s instead of re-decoding the ROOT tree.
+#
+# Vectorised CC0pi / particle helpers operate on those arrays directly.
+# =============================================================================
+
+import os as _os
+import hashlib as _hashlib
+import pickle as _pickle
+
+try:
+    import uproot as _uproot
+    import awkward as _ak
+except ImportError:
+    _uproot = None
+    _ak = None
+    Warn("uproot/awkward not importable; load_arrays() will not work.")
+
+# Public aliases so `from FlatTreeMod import *` brings them in
+ak = _ak
+uproot = _uproot
+
+# Cache directory — defaults to /eos (huge quota) since AFS home is small.
+# Override with $IOP_PAPER_CACHE if needed.
+_CACHE_DIR = _os.environ.get(
+    'IOP_PAPER_CACHE',
+    '/eos/home-l/lamuntea/.cache/iop_paper'
+)
+_os.makedirs(_CACHE_DIR, exist_ok=True)
+
+# Branches commonly used by every Fig*.py. Pulling them all in one pass means
+# the cache is reusable across figs that read the same file.
+DEFAULT_BRANCHES = (
+    'Enu_true', 'Enu_QE', 'ELep', 'Mode', 'cc', 'fScaleFactor',
+    # flagCC0pi removed -- we derive CC0π from the pdg stack inside
+    # is_cc0pi / is_cc0pi_arr so the same code path works on GENIE NUISFLAT
+    # files (which don't write that branch).
+    'nfsp',   'pdg',      'E',      'px',      'py',      'pz',
+    'nvertp', 'pdg_vert', 'E_vert', 'px_vert', 'py_vert', 'pz_vert',
+    'ninitp',
+)
+
+
+def _cache_key(filename, branches, max_events):
+    h = _hashlib.sha1()
+    try:
+        st = _os.stat(filename)
+        h.update(f"{filename}|{st.st_size}|{int(st.st_mtime)}".encode())
+    except OSError:
+        h.update(filename.encode())
+    h.update(",".join(sorted(branches)).encode())
+    h.update(str(max_events).encode())
+    return h.hexdigest()
+
+
+def load_arrays(filename, branches=DEFAULT_BRANCHES, max_events=None,
+                tree_name='FlatTree_VARS'):
+    """Load (cached) NUISFLAT branches from `filename` as awkward arrays.
+
+    Returns a dict ``{branch_name: awkward_array}``. Cached on disk under
+    ~/.cache/iop_paper/ keyed on (file mtime, size, branch list, max_events).
+    Subsequent calls return the cache instead of reading the ROOT file.
+    """
+    if _uproot is None:
+        raise RuntimeError("uproot not available")
+    branches = tuple(branches)
+    cache_path = _os.path.join(_CACHE_DIR,
+                               _cache_key(filename, branches, max_events) + '.pkl')
+    if _os.path.exists(cache_path):
+        with open(cache_path, 'rb') as f:
+            try:
+                return _pickle.load(f)
+            except Exception:
+                Warn(f"corrupt cache, re-reading: {cache_path}")
+    Print(f"Reading (uproot): {filename}")
+    with _uproot.open(filename) as fin:
+        tree = fin[tree_name]
+        # Filter out branches not present in this tree (e.g. GENIE NUISFLAT
+        # files don't carry `flagCC0pi`). The cache key is built from the
+        # resolved subset, so a NUISFLAT-derived file gets its own cache
+        # entry distinct from a NuWro-derived one.
+        available = set(tree.keys())
+        kept = tuple(b for b in branches if b in available)
+        if len(kept) != len(branches):
+            missing = [b for b in branches if b not in available]
+            Warn(f"{filename}: skipping branches not in tree: {missing}")
+            cache_path = _os.path.join(_CACHE_DIR,
+                                       _cache_key(filename, kept, max_events) + '.pkl')
+            if _os.path.exists(cache_path):
+                with open(cache_path, 'rb') as f:
+                    try:
+                        return _pickle.load(f)
+                    except Exception:
+                        Warn(f"corrupt cache, re-reading: {cache_path}")
+        kw = dict(library='ak')
+        if max_events is not None and max_events >= 0:
+            kw['entry_stop'] = int(max_events)
+        arrays = tree.arrays(list(kept), **kw)
+    out = {b: arrays[b] for b in kept}
+    try:
+        with open(cache_path, 'wb') as f:
+            _pickle.dump(out, f, protocol=_pickle.HIGHEST_PROTOCOL)
+    except Exception as e:
+        Warn(f"could not write cache {cache_path}: {e}")
+    return out
+
+
+def particles_arr(arr, *, vertex=False):
+    """Vectorised counterpart of `particles()`. Given the dict from
+    load_arrays, returns (n, pdg, E, px, py, pz) jagged arrays.
+
+    For vertex=True, the initial-state entries (incoming neutrino + target
+    nucleon, the first `ninitp` entries of each event's vertex stack) are
+    stripped so the returned arrays contain only the outgoing pre-FSI
+    particles. This is what's wanted for hadronic-energy / CC0π scans
+    that should not double-count the initial state."""
+    if vertex:
+        # Per-particle mask: keep entries whose local index is >= ninitp.
+        keep = ak.local_index(arr['pdg_vert'], axis=1) >= arr['ninitp']
+        pdg = arr['pdg_vert'][keep]
+        return (
+            ak.sum(keep, axis=1),
+            pdg,
+            arr['E_vert'][keep],
+            arr['px_vert'][keep],
+            arr['py_vert'][keep],
+            arr['pz_vert'][keep],
+        )
+    return (arr['nfsp'], arr['pdg'], arr['E'],
+            arr['px'], arr['py'], arr['pz'])
+
+
+def is_cc0pi_arr(arr, *, vertex=False):
+    """Vectorised CC0pi mask. Returns a 1D numpy bool array of length nevents.
+
+    Both branches now compute the selection directly from the particle stack
+    (`pdg` for vertex=False / post-FSI; `pdg_vert` for vertex=True / pre-FSI).
+    The post-FSI branch used to read the pre-computed `flagCC0pi` field but
+    GENIE NUISFLAT files don't carry it -- computing from `pdg` works for any
+    NUISFLAT-format file regardless of generator.
+    """
+    cc = np.asarray(arr['cc'], dtype=bool)
+    pdg_field = 'pdg_vert' if vertex else 'pdg'
+    apdg = abs(arr[pdg_field])
+    has_chpi = ak.any(apdg == 211, axis=1)
+    has_pi0  = ak.any(apdg == 111, axis=1)
+    no_pi = ~ak.to_numpy(has_chpi | has_pi0)
+    return cc & no_pi
+
+
+def diff_enu_qe_arr(arr, *, vertex=False, scale_to_MeV=True):
+    """Vectorised (Enu_QE - Enu_true) for events passing CC0pi selection.
+    Returns a numpy array (in MeV by default)."""
+    sel = is_cc0pi_arr(arr, vertex=vertex)
+    diff = ak.to_numpy(arr['Enu_QE'] - arr['Enu_true'])[sel]
+    return diff * 1000.0 if scale_to_MeV else diff
+
+
+def enu_had_arr(arr, *, vertex=False):
+    """Vectorised hadronic-energy reconstruction matching NUISANCE
+    ``GetErecoil_MINERvA_LowRecoil`` for the hadronic part.
+
+    Returns ``(bias_wo, bias_with, valid_mask)`` *filtered to CC events*:
+      - bias_wo   = E_ν^reco(no pion-mass subtraction)           − Enu_true
+      - bias_with = E_ν^reco(π± with full E, p still kinetic)    − Enu_true
+      - valid_mask is the CC selection (arr['cc']).
+
+    Per-particle contribution (everything else contributes 0):
+      proton  (2212):       T = E − m
+      π±      (211):        T = E − m   (def 1, "no π mass")
+                            E           (def 2, "with π mass")
+      π0      (111):        E
+      e±      (11):         E
+      γ       (22):         E
+      neutrons / heavy / |pdg|>3000 / strange / etc.: skipped
+    Lepton energy ELep is added separately (so the histogrammed quantity is
+    full E_ν^reco = ELep + Σ_hadronic, not just the recoil)."""
+    n, pdg, E, px, py, pz = particles_arr(arr, vertex=vertex)
+    apdg = abs(pdg)
+    p2 = px*px + py*py + pz*pz
+    mass2 = E*E - p2
+    mass = ak.where(mass2 > 0, np.sqrt(ak.where(mass2 > 0, mass2, 0.0)), 0.0)
+
+    is_p     = apdg == 2212
+    is_chpi  = apdg == 211
+    is_pi0   = apdg == 111
+    is_e     = apdg == 11
+    is_gamma = apdg == 22
+    full_E_set = is_pi0 | is_e | is_gamma                # always +E
+
+    # Definition 1 (no π mass): p and π± both contribute kinetic energy.
+    add_wo   = (is_p | is_chpi) * (E - mass) + full_E_set * E
+    # Definition 2 (with π mass): p kinetic, π± full E.
+    add_with = is_p * (E - mass) + (is_chpi | full_E_set) * E
+
+    enuhad_wo   = ak.to_numpy(arr['ELep']) + ak.to_numpy(ak.sum(add_wo,   axis=1))
+    enuhad_with = ak.to_numpy(arr['ELep']) + ak.to_numpy(ak.sum(add_with, axis=1))
+    Enu_true    = ak.to_numpy(arr['Enu_true'])
+    cc_mask     = np.asarray(arr['cc'], dtype=bool)
+    return (enuhad_wo - Enu_true)[cc_mask], (enuhad_with - Enu_true)[cc_mask], cc_mask
+
+
+def smooth_shift_ratio(counts, edges, shift):
+    """Analytical H(E - shift) / H(E) via centered finite-difference of log-counts.
+
+    Uses the first-order Taylor expansion
+        H(E - Δ) / H(E) ≈ exp(-Δ · d ln H / dE)
+    which for small Δ vs the spectrum width gives a smooth ratio with no
+    per-bin Poisson scatter from the explicit-shift implementation.
+
+    `edges` and `shift` must be in the same units; `counts` is the
+    unshifted weighted bin contents.
+    """
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    safe = np.maximum(counts, 1e-30)
+    dlogH_dE = np.gradient(np.log(safe), centers)
+    return np.exp(-shift * dlogH_dE)
+
+
+# Default method for energy-shift systematics in the Fig1 ratio panels.
+#   'taylor'   - analytical exp(-Δ d ln H / dE) — smooth (default)
+#   'explicit' - per-event histogram of x + shift — bin-to-bin Poisson noise
+# Override at runtime via:  FlatTreeMod.ENERGY_SHIFT_METHOD = 'explicit'
+# or per-call via the `method` arg of `plot_osc_shift_e`.
+ENERGY_SHIFT_METHOD = 'taylor'
+
+
+def plot_osc_shift_e(ax, ax_ratio, *, shift, label, color, counts_nom, bins,
+                     x_unshifted, weights, method=None, lw=1.5, ls='-'):
+    """Plot an energy-shifted variant on (ax, ax_ratio).
+
+    Top panel: a curve at the shifted energy values.
+    Ratio panel: H(E - shift) / H(E).
+
+    method is one of 'taylor' / 'explicit'; default = ENERGY_SHIFT_METHOD.
+    """
+    if method is None:
+        method = ENERGY_SHIFT_METHOD
+    centers = 0.5 * (bins[:-1] + bins[1:])
+    if method == 'taylor':
+        # Visual-shift curve: same counts, x translated by +shift.
+        ax.step(centers + shift, counts_nom, where='mid',
+                color=color, lw=lw, ls=ls, label=label)
+        ratio = smooth_shift_ratio(counts_nom, bins, shift)
+    elif method == 'explicit':
+        counts, _ = np.histogram(x_unshifted + shift, bins=bins, weights=weights)
+        ax.step(centers, counts, where='mid',
+                color=color, lw=lw, ls=ls, label=label)
+        ratio = counts / np.maximum(counts_nom, 1e-30)
+    else:
+        raise ValueError(f"unknown method {method!r}; use 'taylor' or 'explicit'")
+    ratio = np.nan_to_num(ratio, nan=0.0, posinf=0.0, neginf=0.0)
+    ax_ratio.step(centers, ratio, where='mid', color=color, lw=lw, ls=ls)
+    return ratio
 
 
 def hist_paper(ax, x, *, bins, weights=None, kind=None, label=None,
