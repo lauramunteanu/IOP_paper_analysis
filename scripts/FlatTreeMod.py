@@ -20,30 +20,34 @@ try:
     plt.style.use(["science", "notebook"])  #, "grid"]
 except Exception:
     plt.style.use("default")
+# Font sizes are calibrated for IOP single-column print width (86 mm / 3.4").
+# Each Fig*_plot.py uses make_fig / make_fig_ratio / make_fig_stacked (defined
+# below) so figures are born at the right physical size and labels render at
+# their pt size on the page (no shrink-to-fit downscaling).
 plt.rcParams.update({
     "text.usetex": True,
     "font.family": "serif",
     "font.serif": ["Computer Modern Roman"],
-    "axes.linewidth": 1.0,
-    "axes.labelsize": 13,
-    "axes.titlesize": 12,
-    "xtick.labelsize": 11,
-    "ytick.labelsize": 11,
+    "axes.linewidth": 0.8,
+    "axes.labelsize": 10,
+    "axes.titlesize": 10,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
     "xtick.direction": "in",
     "ytick.direction": "in",
     "xtick.top": True,
     "ytick.right": True,
-    "xtick.major.size": 5,
-    "ytick.major.size": 5,
-    "xtick.minor.size": 3,
-    "ytick.minor.size": 3,
+    "xtick.major.size": 4,
+    "ytick.major.size": 4,
+    "xtick.minor.size": 2,
+    "ytick.minor.size": 2,
     "xtick.minor.visible": True,
     "ytick.minor.visible": True,
-    "legend.fontsize": 10,
+    "legend.fontsize": 9,
     "legend.frameon": False,
-    "lines.linewidth": 1.6,
+    "lines.linewidth": 1.4,
     "figure.dpi": 110,
-    "savefig.dpi": 200,
+    "savefig.dpi": 300,
     "savefig.bbox": "tight",
     # Force scientific notation for very small/large numbers (without these,
     # matplotlib's autoscale can fail on differential-xsec values ~1e-42).
@@ -251,6 +255,42 @@ PAPER_BINNING = dict(
     HK_bias_MeV   = (-1000., 1000., 10.),    # (xmin, xmax, width)
     DUNE_bias_GeV = (-3.,    1.,    0.04),
 )
+
+
+# =============================================================================
+# IOP figure-size standards. Single column = 86 mm = 3.39"; double = 178 mm = 7.01".
+# Sizing the figure at creation time (instead of letting LaTeX shrink an
+# oversized canvas) keeps label pt size honest on the printed page.
+# =============================================================================
+FIG_SIZES = {
+    'single':         (3.5, 2.6),    # one panel, single column
+    'single_ratio':   (3.5, 4.0),    # main + ratio strip, single column (Fig3/4/7)
+    'double':         (7.0, 3.0),    # one wide panel, double column
+    'double_ratio':   (7.0, 4.5),    # main + ratio, double column
+    'double_stacked': (7.0, 5.0),    # two stacked panels (Fig5 noFSI/FSI)
+    'box':            (5.0, 7.0),    # tall, narrow box-and-whisker comparison
+}
+
+
+def make_fig(kind='single', **subplots_kw):
+    """Single-panel figure sized for IOP publication. Returns (fig, ax)."""
+    return plt.subplots(figsize=FIG_SIZES[kind], **subplots_kw)
+
+
+def make_fig_ratio(kind='single_ratio', height_ratios=(3, 1), hspace=0.05):
+    """Two-row main + ratio figure with shared x. Returns (fig, (ax_main, ax_ratio))."""
+    return plt.subplots(
+        2, 1, sharex=True, figsize=FIG_SIZES[kind],
+        gridspec_kw={'height_ratios': list(height_ratios), 'hspace': hspace},
+    )
+
+
+def make_fig_stacked(kind='double_stacked', sharex=True, sharey=False, hspace=0.08):
+    """Two stacked panels (rows) figure. Returns (fig, (ax_top, ax_bot))."""
+    return plt.subplots(
+        2, 1, sharex=sharex, sharey=sharey, figsize=FIG_SIZES[kind],
+        gridspec_kw={'hspace': hspace},
+    )
 
 
 # Global scale for dσ/dE histograms. Multiply weights by DSIGMA_DE_SCALE
