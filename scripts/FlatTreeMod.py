@@ -48,7 +48,13 @@ plt.rcParams.update({
     "lines.linewidth": 1.4,
     "figure.dpi": 110,
     "savefig.dpi": 300,
-    "savefig.bbox": "tight",
+    # Force 'standard' (no per-fig content-box cropping) — overrides the
+    # 'tight' that scienceplots' 'science' style sets. With 'tight', numu
+    # vs numubar PDFs come out at different widths because their y-tick
+    # label widths differ. With 'standard' the saved canvas is exactly
+    # figsize and the make_fig* helpers' layout='constrained' fits labels
+    # inside that canvas.
+    "savefig.bbox": "standard",
     # Force scientific notation for very small/large numbers (without these,
     # matplotlib's autoscale can fail on differential-xsec values ~1e-42).
     "axes.formatter.useoffset": False,
@@ -273,22 +279,29 @@ FIG_SIZES = {
 
 
 def make_fig(kind='single', **subplots_kw):
-    """Single-panel figure sized for IOP publication. Returns (fig, ax)."""
+    """Single-panel figure sized for IOP publication. Returns (fig, ax).
+    Uses layout='constrained' so labels fit inside the figsize canvas
+    without changing its dimensions (so paired numu/numubar PDFs are
+    pixel-identical in size)."""
+    subplots_kw.setdefault('layout', 'constrained')
     return plt.subplots(figsize=FIG_SIZES[kind], **subplots_kw)
 
 
 def make_fig_ratio(kind='single_ratio', height_ratios=(3, 1), hspace=0.05):
-    """Two-row main + ratio figure with shared x. Returns (fig, (ax_main, ax_ratio))."""
+    """Two-row main + ratio figure with shared x. Returns (fig, (ax_main, ax_ratio)).
+    Uses layout='constrained' for stable canvas dimensions."""
     return plt.subplots(
-        2, 1, sharex=True, figsize=FIG_SIZES[kind],
+        2, 1, sharex=True, figsize=FIG_SIZES[kind], layout='constrained',
         gridspec_kw={'height_ratios': list(height_ratios), 'hspace': hspace},
     )
 
 
 def make_fig_stacked(kind='double_stacked', sharex=True, sharey=False, hspace=0.08):
-    """Two stacked panels (rows) figure. Returns (fig, (ax_top, ax_bot))."""
+    """Two stacked panels (rows) figure. Returns (fig, (ax_top, ax_bot)).
+    Uses layout='constrained' for stable canvas dimensions."""
     return plt.subplots(
         2, 1, sharex=sharex, sharey=sharey, figsize=FIG_SIZES[kind],
+        layout='constrained',
         gridspec_kw={'hspace': hspace},
     )
 
@@ -460,7 +473,8 @@ _os.makedirs(_CACHE_DIR, exist_ok=True)
 # Branches commonly used by every Fig*.py. Pulling them all in one pass means
 # the cache is reusable across figs that read the same file.
 DEFAULT_BRANCHES = (
-    'Enu_true', 'Enu_QE', 'ELep', 'Mode', 'cc', 'fScaleFactor',
+    'Enu_true', 'Enu_QE', 'ELep', 'CosLep', 'PDGLep',
+    'Mode', 'cc', 'fScaleFactor',
     # flagCC0pi removed -- we derive CC0π from the pdg stack inside
     # is_cc0pi / is_cc0pi_arr so the same code path works on GENIE NUISFLAT
     # files (which don't write that branch).
@@ -469,6 +483,44 @@ DEFAULT_BRANCHES = (
     'ninitp',
 )
 
+
+
+# ---------------------------------------------------------------------------
+# E_nu^QE per FSI IOP paper Eq. 9
+# Numerator   : m_p^2 - m_l^2 - (m_n - Eb)^2 + 2 E_l (m_n - Eb)
+# Denominator : 2 (m_n - Eb - E_l + p_l^z)
+# For antineutrino interactions m_p and m_n are swapped.
+# Eb = 27 MeV (oxygen) per the paper.
+# ---------------------------------------------------------------------------
+M_PROTON_GeV  = 0.938272
+M_NEUTRON_GeV = 0.939565
+M_MUON_GeV    = 0.105658
+M_ELECTRON_GeV = 0.000511
+EB_IOP_GeV    = 0.027
+
+def compute_enu_qe(arr, eb=EB_IOP_GeV):
+    """Reconstructed Enu_QE per the IOP paper. Returns array in GeV.
+    Requires arr to contain ELep (GeV), CosLep, PDGLep."""
+    pdgl = arr['PDGLep']
+    EL   = arr['ELep']
+    cosL = arr['CosLep']
+    abs_pdgl = np.abs(pdgl)
+    m_l = np.where(abs_pdgl == 13, M_MUON_GeV, M_ELECTRON_GeV)
+    is_antinu = pdgl < 0
+    M_init  = np.where(is_antinu, M_PROTON_GeV,  M_NEUTRON_GeV)
+    M_final = np.where(is_antinu, M_NEUTRON_GeV, M_PROTON_GeV)
+    pl  = np.sqrt(np.maximum(EL*EL - m_l*m_l, 0.0))
+    plz = pl * cosL
+    Em  = M_init - eb
+    num = M_final*M_final - m_l*m_l - Em*Em + 2.0*Em*EL
+    den = 2.0*(Em - EL + plz)
+    safe = np.where(np.abs(den) > 1e-9, den, 1e-9)
+    return num / safe
+
+
+# Bump this whenever the post-load array transformation changes so old caches
+# are not re-used. The cache key includes this string.
+_CACHE_SCHEMA = 'iop_enuqe_v1'
 
 def _cache_key(filename, branches, max_events):
     h = _hashlib.sha1()
@@ -479,6 +531,7 @@ def _cache_key(filename, branches, max_events):
         h.update(filename.encode())
     h.update(",".join(sorted(branches)).encode())
     h.update(str(max_events).encode())
+    h.update(_CACHE_SCHEMA.encode())
     return h.hexdigest()
 
 
@@ -526,6 +579,11 @@ def load_arrays(filename, branches=DEFAULT_BRANCHES, max_events=None,
             kw['entry_stop'] = int(max_events)
         arrays = tree.arrays(list(kept), **kw)
     out = {b: arrays[b] for b in kept}
+    # Override Enu_QE with the IOP-paper formula (Eq. 9, Eb = 27 MeV) when
+    # the necessary branches are present. NUISANCE's precomputed Enu_QE may
+    # use a different binding energy or omit the antineutrino mass swap.
+    if all(b in out for b in ('ELep', 'CosLep', 'PDGLep')):
+        out['Enu_QE'] = compute_enu_qe(out)
     try:
         with open(cache_path, 'wb') as f:
             _pickle.dump(out, f, protocol=_pickle.HIGHEST_PROTOCOL)
