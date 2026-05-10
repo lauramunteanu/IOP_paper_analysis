@@ -35,7 +35,7 @@ import ROOT
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"
+BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031"
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 MAX_EVENTS = None        # None = full stats
 
@@ -87,13 +87,15 @@ def osc_factor(enu_GeV, baseline_km, is_nubar):
 # ---------------------------------------------------------------------------
 def read_hk(path):
     a = uproot.open(path)["FlatTree_VARS"].arrays(
-        ["Enu_true", "Enu_QE", "cc", "pdg", "fScaleFactor", "Mode"],
+        ["Enu_true", "ELep", "CosLep", "PDGLep",
+         "cc", "pdg", "fScaleFactor", "Mode"],
         library="ak", entry_stop=MAX_EVENTS)
     apdg = np.abs(a["pdg"])
     n_chpi = ak.sum(apdg == 211, axis=1)
     n_pi0 = ak.sum(apdg == 111, axis=1)
     sel = (a["cc"] == 1) & (n_chpi == 0) & (n_pi0 == 0)
-    bias = (a["Enu_QE"] - a["Enu_true"]) * 1000.0
+    enu_qe = FlatTreeMod.compute_enu_qe(a)  # IOP paper Eq. 9, Eb = 27 MeV
+    bias = (enu_qe - a["Enu_true"]) * 1000.0
     return dict(
         x=np.asarray(bias[sel]),
         w=np.asarray(a["fScaleFactor"][sel]),

@@ -67,7 +67,7 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, isNub, nEvents, nominal=False, co
 fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
 
 _events = -1
-fname_FSI   = "../../Remade_April26/HK/HK_numubar_FSI.flat.root"
+fname_FSI   = "../../Remade_April26/nuwro_25031/HK/HK_numubar_FSI.flat.root"
 fname_noFSI = noFSI_path(fname_FSI)
 
 counts_nom = plot_Enu_bias_numu(
@@ -99,8 +99,8 @@ plt.close(fig)
 
 # fig, ax = plt.subplots()
 # _events = 1000
-# plot_Enu_bias_numu(ax, filename="../../Remade_April26/HK/HK_numu_noFSI.flat.root", isNub=False, nEvents=_events)
-# ax = plot_Enu_bias_numu(ax, filename="../../Remade_April26/HK/HK_numu_FSI.flat.root", isNub=False, nEvents=_events)
+# plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031/HK/HK_numu_noFSI.flat.root", isNub=False, nEvents=_events)
+# ax = plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root", isNub=False, nEvents=_events)
 # ax.vlines(x=0, ymin=0, ymax = ax.get_ylim()[1], color='black', linestyles='--')
 # ax.legend(custom_lines, labels, loc = 'upper right')
 # ax.set_xlabel(r"$E_{\nu}^{\text{QE}} - E_{\nu}^{\text{true}}$ [MeV]")
@@ -109,8 +109,8 @@ plt.close(fig)
 
 # ax.clear()
 # custom_lines, labels = [], []
-# plot_Enu_bias_numu(ax, filename="../../Remade_April26/HK/HK_numubar_noFSI.flat.root", isNub=True, nEvents=_events)
-# ax = plot_Enu_bias_numu(ax, filename="../../Remade_April26/HK/HK_numubar_FSI.flat.root", isNub=True, nEvents=_events)
+# plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031/HK/HK_numubar_noFSI.flat.root", isNub=True, nEvents=_events)
+# ax = plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031/HK/HK_numubar_FSI.flat.root", isNub=True, nEvents=_events)
 # ax.vlines(x=0, ymin=0, ymax = ax.get_ylim()[1], color='black', linestyles='--')
 # ax.legend(custom_lines, labels, loc = 'upper right')
 # ax.set_xlabel(r"$E_{\nu}^{\text{QE}} - E_{\nu}^{\text{true}}$ [MeV]")

@@ -36,8 +36,9 @@ from FlatTreeMod import load_arrays  # noqa: E402
 # ---------------------------------------------------------------------------
 # Configuration (kept in sync with fsi_iop_plots.py)
 # ---------------------------------------------------------------------------
-BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"
+BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031"
 NEUT_BASE = "/eos/home-l/lamuntea/FSI_IOP_paper/neut_runs"
+GENIE_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"  # existing GENIE NUISFLAT samples — separate from NuWro BASE
 MAX_EVENTS = None
 
 THRESH_HK   = 5.0   # MeV
@@ -84,19 +85,19 @@ NUWRO_DUNE_MFP = {
     ("numubar", "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_numub_1p3MFP_FSI.flat.root",
 }
 GENIE_HK = {
-    ("numu",    t): f"{BASE}/HK/GENIE/T2KSK_unosc_FHC_numu_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numu",    t): f"{GENIE_FILES_BASE}/HK/GENIE/T2KSK_unosc_FHC_numu_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 }
 GENIE_HK.update({
-    ("numubar", t): f"{BASE}/HK/GENIE/T2KSK_unosc_RHC_numubar_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numubar", t): f"{GENIE_FILES_BASE}/HK/GENIE/T2KSK_unosc_RHC_numubar_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 })
 GENIE_DUNE = {
-    ("numu",    t): f"{BASE}/DUNE/GENIE/DUNEFD_unosc_FHC_numu_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numu",    t): f"{GENIE_FILES_BASE}/DUNE/GENIE/DUNEFD_unosc_FHC_numu_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 }
 GENIE_DUNE.update({
-    ("numubar", t): f"{BASE}/DUNE/GENIE/DUNEFD_unosc_RHC_numubar_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numubar", t): f"{GENIE_FILES_BASE}/DUNE/GENIE/DUNEFD_unosc_RHC_numubar_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 })
 NEUT_EDRMF = {

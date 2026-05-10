@@ -2,7 +2,7 @@ from FlatTreeMod import *
 import numpy as np
 import awkward as ak
 
-filename = "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root"
+filename = "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root"
 arr = load_arrays(filename, max_events=2000)
 
 ninitp = ak.to_numpy(arr["ninitp"])

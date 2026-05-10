@@ -106,8 +106,8 @@ _events = -1
 _xbins = np.arange(-1000, 1000 + 20, 20)   # bias bins (MeV)
 _ybins = np.arange(300, 6000 + 120, 120)   # Enu_true bins, DUNE 300 MeV - 6 GeV, 120 MeV/bin
 
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root", nEvents=_events, plot_name="FSI_WithoutPion_numu", withPion=False, xbins=_xbins, ybins=_ybins)
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithoutPion_numubar", withPion=False, xbins=_xbins, ybins=_ybins)
+plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root", nEvents=_events, plot_name="FSI_WithoutPion_numu", withPion=False, xbins=_xbins, ybins=_ybins)
+plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithoutPion_numubar", withPion=False, xbins=_xbins, ybins=_ybins)
 
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root", nEvents=_events, plot_name="FSI_WithPion_numu", withPion=True, xbins=_xbins, ybins=_ybins)
-plot_Enu_bias_numu(filename="../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithPion_numubar", withPion=True, xbins=_xbins, ybins=_ybins)
+plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root", nEvents=_events, plot_name="FSI_WithPion_numu", withPion=True, xbins=_xbins, ybins=_ybins)
+plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithPion_numubar", withPion=True, xbins=_xbins, ybins=_ybins)

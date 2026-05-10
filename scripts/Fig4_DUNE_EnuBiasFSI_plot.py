@@ -86,19 +86,19 @@ _events = 10000
 
 plot_configs = [
     {"withPion": True,  "flavor": "numu",
-     "file": "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root",
+     "file": "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root",
      "title": r"$\nu_{\mu}$, w/ pion mass",
      "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numu.pdf"},
     {"withPion": True,  "flavor": "numubar",
-     "file": "../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root",
+     "file": "../../Remade_April26/nuwro_25031/DUNE/DUNE_numub_FSI.flat.root",
      "title": r"$\bar{\nu}_{\mu}$, w/ pion mass",
      "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numubar.pdf"},
     {"withPion": False, "flavor": "numu",
-     "file": "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root",
+     "file": "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root",
      "title": r"$\nu_{\mu}$, w/o pion mass",
      "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numu.pdf"},
     {"withPion": False, "flavor": "numubar",
-     "file": "../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root",
+     "file": "../../Remade_April26/nuwro_25031/DUNE/DUNE_numub_FSI.flat.root",
      "title": r"$\bar{\nu}_{\mu}$, w/o pion mass",
      "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numubar.pdf"},
 ]

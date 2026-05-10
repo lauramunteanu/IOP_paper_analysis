@@ -45,9 +45,9 @@ _events = -1
 # noFSI line now from the dedicated noFSI file with vertex=False (the FSI
 # vertex stack is biased by NuWro binding-energy bookkeeping at cascade exit;
 # loading the noFSI sample sidesteps that).
-plot_Enu_bias(filename=noFSI_path("../../Remade_April26/HK/HK_numu_FSI.flat.root"),
+plot_Enu_bias(filename=noFSI_path("../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root"),
               label=r"no FSI $\nu_{\mu}$", isNuBar=False, nEvents=_events,
               plot_name="noFSI_numu", vertex=False)
-plot_Enu_bias(filename=noFSI_path("../../Remade_April26/HK/HK_numubar_FSI.flat.root"),
+plot_Enu_bias(filename=noFSI_path("../../Remade_April26/nuwro_25031/HK/HK_numubar_FSI.flat.root"),
               label=r"no FSI $\bar{\nu}_{\mu}$", isNuBar=True, nEvents=_events,
               plot_name="noFSI_numubar", vertex=False)

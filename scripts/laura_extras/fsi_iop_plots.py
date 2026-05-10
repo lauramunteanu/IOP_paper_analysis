@@ -41,11 +41,26 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 from FlatTreeMod import load_arrays  # noqa: E402  -- after sys.path tweak
 
+# BW-specific font bump. The BW grid figures sit at 3.5" wide (one half of
+# \textwidth in LaTeX) with a lot of in-figure box content per row, so the
+# global 10/9/9 pt scheme reads as small relative to the data ink. Bump to
+# 13/11/11 here so labels and ticks remain legible at print size without
+# affecting the canonical Fig1-7 plots.
+plt.rcParams.update({
+    "axes.labelsize": 13,
+    "axes.titlesize": 13,
+    "xtick.labelsize": 11,
+    "ytick.labelsize": 11,
+    "legend.fontsize": 11,
+})
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"
+BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031"
 NEUT_BASE = "/eos/home-l/lamuntea/FSI_IOP_paper/neut_runs"
+NEUT_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"  # NEUT EDRMF/RPWIA samples — separate from NuWro BASE
+GENIE_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"  # existing GENIE NUISFLAT samples — separate from NuWro BASE
 OUT_DIR = "/eos/home-l/lamuntea/FSI_IOP_paper/run_genie_bw"
 MAX_EVENTS = None  # full stats (cache hit after first run)
 
@@ -141,39 +156,37 @@ NUWRO_DUNE_MFP = {
 # GENIE 4-tune cascade comparison. Files moved into a GENIE/ subfolder when
 # the project share was reorganised (see scripts/move_genie.sh equivalent).
 GENIE_HK = {
-    ("numu", t):    f"{BASE}/HK/GENIE/T2KSK_unosc_FHC_numu_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numu", t):    f"{GENIE_FILES_BASE}/HK/GENIE/T2KSK_unosc_FHC_numu_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 }
 GENIE_HK.update({
-    ("numubar", t): f"{BASE}/HK/GENIE/T2KSK_unosc_RHC_numubar_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numubar", t): f"{GENIE_FILES_BASE}/HK/GENIE/T2KSK_unosc_RHC_numubar_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 })
 GENIE_DUNE = {
-    ("numu", t):    f"{BASE}/DUNE/GENIE/DUNEFD_unosc_FHC_numu_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numu", t):    f"{GENIE_FILES_BASE}/DUNE/GENIE/DUNEFD_unosc_FHC_numu_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 }
 GENIE_DUNE.update({
-    ("numubar", t): f"{BASE}/DUNE/GENIE/DUNEFD_unosc_RHC_numubar_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
+    ("numubar", t): f"{GENIE_FILES_BASE}/DUNE/GENIE/DUNEFD_unosc_RHC_numubar_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 })
 
 # ---------------------------------------------------------------------------
-# NEUT EDRMF vs RPWIA paths -- PLACEHOLDERS.
-# RPWIA flat files are not yet on disk for any sample. EDRMF flat files
-# exist as test trees only. Replace with production paths once available.
-# Each row is rendered only if its NEUT files resolve via resolve_path().
+# NEUT EDRMF vs RPWIA paths. numu samples live in the project share; numubar
+# samples have not been produced yet (None -> row skipped silently).
 # ---------------------------------------------------------------------------
 NEUT_EDRMF = {
-    "hk_numu":     f"{NEUT_BASE}/HK_numu_H2O_EDRMF/EDRMF.flat.root",          # PLACEHOLDER
-    "hk_numubar":  f"{NEUT_BASE}/HK_numubar_H2O_EDRMF/EDRMF.flat.root",       # PLACEHOLDER
-    "dune_numu":   f"{NEUT_BASE}/DUNE_numu_Ar40_EDRMF/EDRMF.flat.root",       # PLACEHOLDER
-    "dune_numubar":f"{NEUT_BASE}/DUNE_numubar_Ar40_EDRMF/EDRMF.flat.root",    # PLACEHOLDER
+    "hk_numu":     f"{NEUT_FILES_BASE}/HK/NEUT_HK_EDRMF_numu.flat.root",
+    "hk_numubar":  None,
+    "dune_numu":   f"{NEUT_FILES_BASE}/DUNE/DUNE_EDRMF_numu.root",
+    "dune_numubar":None,
 }
 NEUT_RPWIA = {
-    "hk_numu":     f"{NEUT_BASE}/HK_numu_H2O_RPWIA/RPWIA.flat.root",          # PLACEHOLDER
-    "hk_numubar":  f"{NEUT_BASE}/HK_numubar_H2O_RPWIA/RPWIA.flat.root",       # PLACEHOLDER
-    "dune_numu":   f"{NEUT_BASE}/DUNE_numu_Ar40_RPWIA/RPWIA.flat.root",       # PLACEHOLDER
-    "dune_numubar":f"{NEUT_BASE}/DUNE_numubar_Ar40_RPWIA/RPWIA.flat.root",    # PLACEHOLDER
+    "hk_numu":     f"{NEUT_FILES_BASE}/HK/NEUT_HK_RPWIA_numu.flat.root",
+    "hk_numubar":  None,
+    "dune_numu":   f"{NEUT_FILES_BASE}/DUNE/DUNE_RPWIA_numu.root",
+    "dune_numubar":None,
 }
 
 OBS_LABELS = {
@@ -316,9 +329,9 @@ def draw_hybrid_hist(ax, y, half, x, w, color,
     ax.plot([whi] * 2, [y - bh / 3, y + bh / 3], color=color, lw=0.9,
             alpha=WHISKER_ALPHA, zorder=3)
 
-    ax.plot(s["median"], y, "o", color="white", markersize=5,
+    ax.plot(s["median"], y, "o", color="white", markersize=7,
             markeredgecolor=color, markeredgewidth=1.4, zorder=6)
-    ax.plot(s["mean"], y, "D", color="white", markersize=4.5,
+    ax.plot(s["mean"], y, "D", color="white", markersize=4.0,
             markeredgecolor=color, markeredgewidth=1.4, zorder=6)
 
 
@@ -353,8 +366,8 @@ def save_strip_legend(handles, fname, fig_w=12.0, fig_h=0.5):
                frameon=True, framealpha=1.0,
                handletextpad=0.5, columnspacing=2.0,
                borderpad=0.4, borderaxespad=0.0)
-    plt.savefig(f"{OUT_DIR}/{fname}.png", dpi=200, bbox_inches="tight")
-    plt.savefig(f"{OUT_DIR}/{fname}.pdf", bbox_inches="tight")
+    plt.savefig(f"{OUT_DIR}/{fname}.png", dpi=200)
+    plt.savefig(f"{OUT_DIR}/{fname}.pdf")
     plt.close(fig)
     print(f"saved {OUT_DIR}/{fname}.png")
 
@@ -440,10 +453,19 @@ def _make_figure(fname_stem, flavour, variants, group_label_suffix=""):
     obs_keys = [k for k, _ in OBS_GROUPS]
     n_groups = len(obs_keys)
     rows_per_group = len(variants)
-    sub_pitch = 0.45
-    group_pitch = rows_per_group * sub_pitch + 0.6
+    # Tighter packing for the 3.5"-wide canvas: rows at 0.30 axis units,
+    # inter-group gap 0.30 (was 0.45 / 0.60 — those produced a very tall,
+    # vertically-squeezed look at the new 3.5" width).
+    sub_pitch = 0.30
+    group_pitch = rows_per_group * sub_pitch + 0.30
     half = sub_pitch / 2 * 0.85
-    fig, ax = plt.subplots(figsize=(11.0, group_pitch * n_groups + 1.6))
+    # Each BW fig is sized to *one half* of \textwidth (3.5") so a two-up
+    # numu+numubar subfigure tiles to the full text width with NO LaTeX
+    # downscaling — text prints at its rcParams pt size on the page.
+    # layout='constrained' lets matplotlib pack the labels inside the canvas
+    # so the saved PDF is exactly figsize (no per-fig bbox-tight cropping).
+    fig, ax = plt.subplots(figsize=(3.5, group_pitch * n_groups + 1.6),
+                           layout='constrained')
 
     group_centers = []
     for gi, ok in enumerate(obs_keys):
@@ -469,10 +491,11 @@ def _make_figure(fname_stem, flavour, variants, group_label_suffix=""):
     setup_axes(ax, n_groups, r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]",
                XMIN_FIXED, XMAX_FIXED, ylabels, group_centers)
 
-    plt.tight_layout()
     out = f"{fname_stem}_{flavour}"
-    plt.savefig(f"{OUT_DIR}/{out}.png", dpi=180, bbox_inches="tight")
-    plt.savefig(f"{OUT_DIR}/{out}.pdf", bbox_inches="tight")
+    # No bbox_inches="tight" — keep canvas exactly figsize so numu/numubar
+    # tile pixel-identically.
+    plt.savefig(f"{OUT_DIR}/{out}.png", dpi=180)
+    plt.savefig(f"{OUT_DIR}/{out}.pdf")
     plt.close(fig)
     print(f"saved {OUT_DIR}/{out}.png")
 
@@ -599,7 +622,7 @@ quantity_handles_hybrid = [
               label=r"$1\sigma$ box (16-84)"),
     Line2D([0], [0], color="black", lw=1.0, alpha=WHISKER_ALPHA,
            label=r"90\% whiskers (5-95)"),
-    Line2D([0], [0], marker="o", linestyle="", markersize=7,
+    Line2D([0], [0], marker="o", linestyle="", markersize=10,
            markerfacecolor="white", markeredgecolor="black",
            markeredgewidth=1.4, label="median"),
     Line2D([0], [0], marker="D", linestyle="", markersize=6,
@@ -612,34 +635,35 @@ def _save_all_legends():
     thin framed horizontal legend, no title — meant to be dropped into
     LaTeX with \\includegraphics[width=\\linewidth]{...} so it spans
     the side-by-side numu/numubar pair above it."""
-    # Shared markers strip — same across every BW set.
-    save_strip_legend(quantity_handles_hybrid, "legend_metrics", fig_w=14.0)
-    # Per-set colour strips. Filenames mirror the figure stems.
+    # All legend strips are sized to span a side-by-side numu+numubar BW
+    # pair: each BW fig is 3.5" so the pair is 7" wide = IOP \textwidth.
+    BW_PAIR_WIDTH = 7.0
+    save_strip_legend(quantity_handles_hybrid, "legend_metrics", fig_w=BW_PAIR_WIDTH)
     save_strip_legend(
         [colour_swatch(COL_GREY,      "with FSI"),
          colour_swatch(COL_VERMILION, "no FSI")],
-        "legend_Fig8_FSIvsNoFSI", fig_w=8.0,
+        "legend_Fig8_FSIvsNoFSI", fig_w=BW_PAIR_WIDTH,
     )
     save_strip_legend(
         [colour_swatch(COL_VERMILION, r"$\pi_{\rm abs}$ $+31\%$"),
          colour_swatch(COL_GREY,      "nominal"),
          colour_swatch(COL_BLUE,      r"$\pi_{\rm abs}$ $-31\%$")],
-        "legend_Fig9_PiAbs", fig_w=12.0,
+        "legend_Fig9_PiAbs", fig_w=BW_PAIR_WIDTH,
     )
     save_strip_legend(
         [colour_swatch(COL_VERMILION, r"$0.7\times$ NN MFP"),
          colour_swatch(COL_GREY,      "nominal"),
          colour_swatch(COL_BLUE,      r"$1.3\times$ NN MFP")],
-        "legend_Fig10_MFP", fig_w=12.0,
+        "legend_Fig10_MFP", fig_w=BW_PAIR_WIDTH,
     )
     save_strip_legend(
         [colour_swatch(c, f"GENIE G18\\_{t}") for t, c in CASCADE_COLORS.items()],
-        "legend_Fig11_GENIE", fig_w=14.0,
+        "legend_Fig11_GENIE", fig_w=BW_PAIR_WIDTH,
     )
     save_strip_legend(
         [colour_swatch(COL_GREY,   "EDRMF"),
          colour_swatch(COL_ORANGE, "RPWIA")],
-        "legend_Fig12_EDRMF", fig_w=8.0,
+        "legend_Fig12_EDRMF", fig_w=BW_PAIR_WIDTH,
     )
 
 

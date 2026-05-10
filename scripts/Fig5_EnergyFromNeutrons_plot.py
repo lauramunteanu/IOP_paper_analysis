@@ -73,10 +73,10 @@ _events = -1
 # All four samples: DUNE × {numu, numubar} and HK × {numu, numubar}.
 # Each call produces a 2-panel (noFSI top, FSI bottom) PDF.
 SAMPLES = [
-    ("DUNE", "numu",    "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root"),
-    ("DUNE", "numubar", "../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root"),
-    ("HK",   "numu",    "../../Remade_April26/HK/HK_numu_FSI.flat.root"),
-    ("HK",   "numubar", "../../Remade_April26/HK/HK_numubar_FSI.flat.root"),
+    ("DUNE", "numu",    "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root"),
+    ("DUNE", "numubar", "../../Remade_April26/nuwro_25031/DUNE/DUNE_numub_FSI.flat.root"),
+    ("HK",   "numu",    "../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root"),
+    ("HK",   "numubar", "../../Remade_April26/nuwro_25031/HK/HK_numubar_FSI.flat.root"),
 ]
 
 for exp, flav, fname_FSI in SAMPLES:
@@ -96,8 +96,6 @@ for exp, flav, fname_FSI in SAMPLES:
 
     handles, labels = ax_top.get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center",
-               bbox_to_anchor=(0.5, 0.92), ncol=4)
-
-    plt.tight_layout(rect=(0, 0, 1, 0.92))
+               bbox_to_anchor=(0.5, 1.0), ncol=4)
     plt.savefig(f"Fig5_plots/Fig5_{exp}_EnergyFromNeutrons_{flav}_stacked.pdf")
     plt.close(fig)

@@ -95,5 +95,5 @@ _events = -1
 _xbins = np.arange(-1000, 1000, 16)      # bias bins (MeV)
 _ybins = np.arange(150, 2000 + 60, 60)   # Enu_true bins, HK 150 MeV - 2 GeV, 60 MeV/bin (3x coarser than original 20 MeV)
 
-plot_Enu_bias(filename="../../Remade_April26/HK/HK_numu_FSI.flat.root", isNub=True, nEvents=_events, plot_name="FSI_numub", xbins=_xbins, ybins=_ybins)
-plot_Enu_bias(filename="../../Remade_April26/HK/HK_numubar_FSI.flat.root", isNub=False, nEvents=_events, plot_name="FSI_numu", xbins=_xbins, ybins=_ybins)
+plot_Enu_bias(filename="../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root", isNub=True, nEvents=_events, plot_name="FSI_numub", xbins=_xbins, ybins=_ybins)
+plot_Enu_bias(filename="../../Remade_April26/nuwro_25031/HK/HK_numubar_FSI.flat.root", isNub=False, nEvents=_events, plot_name="FSI_numu", xbins=_xbins, ybins=_ybins)

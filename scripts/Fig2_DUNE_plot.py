@@ -60,8 +60,8 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, vertex=False):
 
 
 _events = -1
-NUMU = "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root"
-NUMUB = "../../Remade_April26/DUNE/DUNE_numub_FSI.flat.root"
+NUMU = "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root"
+NUMUB = "../../Remade_April26/nuwro_25031/DUNE/DUNE_numub_FSI.flat.root"
 
 # noFSI line now comes from the dedicated noFSI sample file, not from the
 # vertex stack of the FSI sample (vertex stack is biased by NuWro's binding-

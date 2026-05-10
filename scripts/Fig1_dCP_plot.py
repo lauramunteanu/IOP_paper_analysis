@@ -131,9 +131,8 @@ def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
 
 
 
-# plot_EnuReco("../../Remade_April26/HK/HK_numu_FSI.flat.root", nEvents = 2000000, IsReco = True)
-plot_EnuReco("../../Remade_April26/HK/HK_numu_FSI.flat.root", nEvents = 1000000, IsReco = False)
-# plot_EnuReco(nEvents = 5000000, IsReco = True)
+plot_EnuReco("../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root", nEvents = 1000000, IsReco = False)
+plot_EnuReco("../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root", nEvents = 1000000, IsReco = True)
 
 
 

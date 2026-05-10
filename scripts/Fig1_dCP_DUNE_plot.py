@@ -42,7 +42,7 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)
 
-    filename = "../../Remade_April26/DUNE/DUNE_numu_FSI.flat.root"
+    filename = "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root"
     arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
     # enu_had_arr returns bias = enuhad - Enu_true (GeV); this script wants raw
     # enuhad. Add Enu_true back in and convert everything to MeV.
