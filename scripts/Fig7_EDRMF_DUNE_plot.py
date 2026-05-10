@@ -9,8 +9,11 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, withPion,
   bin_width = 0.05
   bins = np.arange(-0.7, 0 + bin_width, step=bin_width)
 
-  weights_with = fScaleFactor*np.ones_like(bias_with_list)/bin_width
-  weights_wo   = fScaleFactor*np.ones_like(bias_wo_list)/bin_width
+  # Use the canonical dσ/dE weight scaling (×DSIGMA_DE_SCALE = 1e42) so the
+  # y-axis autoscales sensibly. Bias is in GeV here, so the y-axis label
+  # below is in [10^-42 cm^2/nucleon/GeV].
+  weights_with = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias_with_list)
+  weights_wo   = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias_wo_list)
 
   # ---------------------------------
   # Choose with/without pion correction
@@ -89,7 +92,7 @@ _withPion = False
 counts_rpwia_wo = plot_Enu_bias_numu(
     ax=ax,
     ax_ratio=ax_ratio,
-    filename="../../FSI/RPWIA_1M_Cas_numu_Ar40.flat.root",
+    filename="/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/DUNE/DUNE_RPWIA_numu.root",
     label="RPWIA",
     nEvents=_events,
     withPion=_withPion,
@@ -99,7 +102,7 @@ counts_rpwia_wo = plot_Enu_bias_numu(
 plot_Enu_bias_numu(
     ax=ax,
     ax_ratio=ax_ratio,
-    filename="../../FSI/NEUT_Ar40_EDRMF_numu.flat.root",
+    filename="/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/DUNE/DUNE_EDRMF_numu.root",
     label="ED-RMF",
     nEvents=_events,
     withPion=_withPion,
@@ -110,13 +113,13 @@ plot_Enu_bias_numu(
 ax.legend(custom_lines, labels, loc='best')
 ax.set_title(r"$\nu_{\mu}$, w/o pion mass")
 ax.set_ylabel(
-    r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ "
-    r"[cm$^{2}$/nucleon GeV]"
+    r"$\mathrm{d}\sigma/\mathrm{d}E$ "
+    r"[10$^{-42}$ cm$^{2}$/nucleon/GeV]"
 )
 
 ax_ratio.set_xlabel(r"$E_{\nu}^{\text{avail}} - E_{\nu}^{\text{true}}$ [GeV]")
 ax_ratio.set_ylabel("ED-RMF/RPWIA")
-ax_ratio.set_ylim(0, 2)
+ax_ratio.set_ylim(0.5, 1.5)
 
 plt.savefig("Fig7_plots/Fig7_Ar40_EnuRecoBias_EDRMF_RPWIA_WithoutPion_ratio.pdf")
 plt.close(fig)
@@ -134,7 +137,7 @@ _withPion = True
 counts_rpwia_with = plot_Enu_bias_numu(
     ax=ax,
     ax_ratio=ax_ratio,
-    filename="../../FSI/RPWIA_1M_Cas_numu_Ar40.flat.root",
+    filename="/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/DUNE/DUNE_RPWIA_numu.root",
     label="RPWIA",
     nEvents=_events,
     withPion=_withPion,
@@ -144,7 +147,7 @@ counts_rpwia_with = plot_Enu_bias_numu(
 plot_Enu_bias_numu(
     ax=ax,
     ax_ratio=ax_ratio,
-    filename="../../FSI/NEUT_Ar40_EDRMF_numu.flat.root",
+    filename="/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/DUNE/DUNE_EDRMF_numu.root",
     label="ED-RMF",
     nEvents=_events,
     withPion=_withPion,
@@ -155,13 +158,13 @@ plot_Enu_bias_numu(
 ax.legend(custom_lines, labels, loc='best')
 ax.set_title(r"$\nu_{\mu}$, w/ pion mass")
 ax.set_ylabel(
-    r"$\text{d}\sigma/\text{d}E_{\nu}^{\text{bias}}$ "
-    r"[cm$^{2}$/nucleon GeV]"
+    r"$\mathrm{d}\sigma/\mathrm{d}E$ "
+    r"[10$^{-42}$ cm$^{2}$/nucleon/GeV]"
 )
 
 ax_ratio.set_xlabel(r"$E_{\nu}^{\text{had}} - E_{\nu}^{\text{true}}$ [GeV]")
 ax_ratio.set_ylabel("ED-RMF/RPWIA")
-ax_ratio.set_ylim(0, 2)
+ax_ratio.set_ylim(0.5, 1.5)
 
 plt.savefig("Fig7_plots/Fig7_Ar40_EnuRecoBias_EDRMF_RPWIA_WithPion_ratio.pdf")
 plt.close(fig)
