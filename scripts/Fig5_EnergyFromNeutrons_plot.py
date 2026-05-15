@@ -123,5 +123,5 @@ for exp, flav, fname_FSI in SAMPLES:
         fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
         legend_title = "FSI" if fsi_state == "FSI" else "no FSI"
         plot_grouped(ax, ax_ratio, pair[fsi_state], legend_title, ymax)
-        plt.savefig(f"Fig5_plots/Fig5_{exp}_EnergyFromNeutrons_{flav}_{fsi_state}.pdf")
+        plt.savefig(outpath("Fig5_plots", f"Fig5_{exp}_EnergyFromNeutrons_{flav}_{fsi_state}.pdf"))
         plt.close(fig)

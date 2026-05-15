@@ -766,6 +766,138 @@ def enu_had_arr(arr, *, vertex=False):
     return (enuhad_wo - Enu_true)[cc_mask], (enuhad_with - Enu_true)[cc_mask], cc_mask
 
 
+# ---------------------------------------------------------------------------
+# Output directory placeholder. Set the $OUTPUT_PLOTS_DIR environment variable
+# to redirect every figure-script savefig into a single staging tree
+# (e.g. /eos/home-l/lamuntea/FSI_IOP_paper/iop_plots). Per-figure subdirs
+# (Fig1_plots/, Fig2_plots/, ...) are preserved under that root. If unset,
+# scripts fall back to the existing relative dirs under scripts/.
+# ---------------------------------------------------------------------------
+OUTPUT_PLOTS_DIR = os.environ.get("OUTPUT_PLOTS_DIR", "")
+
+
+def outpath(subdir, filename):
+    """Resolve a figure-output path.
+
+    Returns ``$OUTPUT_PLOTS_DIR/<subdir>/<filename>`` if OUTPUT_PLOTS_DIR is set,
+    else ``<subdir>/<filename>`` (relative to the script's cwd). Creates the
+    parent directory if needed so callers can plt.savefig(...) without
+    pre-mkdir-ing.
+    """
+    full_dir = os.path.join(OUTPUT_PLOTS_DIR, subdir) if OUTPUT_PLOTS_DIR else subdir
+    os.makedirs(full_dir, exist_ok=True)
+    return os.path.join(full_dir, filename)
+
+
+# ---------------------------------------------------------------------------
+# Relative-bias support — paper-wide constants and unified bias accessor.
+# Relative bias delta = (E_reco - E_true) / E_true (dimensionless). Used
+# alongside the existing absolute MeV bias by parameterising every bias-plot
+# script on kind in {"abs", "rel"}.
+# ---------------------------------------------------------------------------
+REL_BIAS_XLIM = (-0.9, 0.3)
+DSIGMA_DREL_LABEL = r"$\mathrm{d}\sigma/\mathrm{d}\delta$ [10$^{-42}$ cm$^{2}$/nucleon]"
+
+
+def bias_arr(arr, observable, *, kind="abs", vertex=False):
+    """Unified neutrino-energy bias accessor used by every bias-plot script.
+
+    observable : {'qe', 'had', 'avail'}
+        - 'qe'    -- HK CC0pi, Enu_QE per IOP paper Eq. 9
+        - 'had'   -- DUNE Enu^had with full charged-pion energy
+        - 'avail' -- DUNE Enu^avail with charged-pion kinetic energy only
+    kind : {'abs', 'rel'}
+        - 'abs' -- (E_reco - E_true) in MeV (matches diff_enu_qe_arr semantics)
+        - 'rel' -- (E_reco - E_true) / E_true, dimensionless
+
+    Returns a 1-D numpy array of length = events passing the observable's
+    intrinsic selection (CC0pi for 'qe'; CC for 'had'/'avail').
+    """
+    if observable == "qe":
+        sel = is_cc0pi_arr(arr, vertex=vertex)
+        enu_qe_GeV   = ak.to_numpy(arr['Enu_QE'])[sel]
+        enu_true_GeV = ak.to_numpy(arr['Enu_true'])[sel]
+        diff_GeV = enu_qe_GeV - enu_true_GeV
+        if kind == "abs":
+            return diff_GeV * 1000.0
+        safe = np.where(enu_true_GeV > 0, enu_true_GeV, 1.0)
+        return np.where(enu_true_GeV > 0, diff_GeV / safe, 0.0)
+
+    if observable in ("had", "avail"):
+        bias_wo_GeV, bias_with_GeV, cc_mask = enu_had_arr(arr, vertex=vertex)
+        diff_GeV = bias_with_GeV if observable == "had" else bias_wo_GeV
+        if kind == "abs":
+            return diff_GeV * 1000.0
+        enu_true_GeV = ak.to_numpy(arr['Enu_true'])[np.asarray(cc_mask, dtype=bool)]
+        safe = np.where(enu_true_GeV > 0, enu_true_GeV, 1.0)
+        return np.where(enu_true_GeV > 0, diff_GeV / safe, 0.0)
+
+    raise ValueError(f"unknown observable {observable!r}; use 'qe', 'had' or 'avail'")
+
+
+_BIAS_XLABEL = {
+    ("qe",    "abs"): r"$E_{\nu}^{\rm QE} - E_{\nu}^{\rm true}$ [MeV]",
+    ("qe",    "rel"): r"$(E_{\nu}^{\rm QE} - E_{\nu}^{\rm true}) / E_{\nu}^{\rm true}$",
+    ("had",   "abs"): r"$E_{\nu}^{\rm had} - E_{\nu}^{\rm true}$ [MeV]",
+    ("had",   "rel"): r"$(E_{\nu}^{\rm had} - E_{\nu}^{\rm true}) / E_{\nu}^{\rm true}$",
+    ("avail", "abs"): r"$E_{\nu}^{\rm avail} - E_{\nu}^{\rm true}$ [MeV]",
+    ("avail", "rel"): r"$(E_{\nu}^{\rm avail} - E_{\nu}^{\rm true}) / E_{\nu}^{\rm true}$",
+    ("reco",  "abs"): r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]",
+    ("reco",  "rel"): r"$(E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}) / E_{\nu}^{\rm true}$",
+}
+
+
+def bias_xlabel(observable, kind):
+    """Return the LaTeX x-axis label for a bias plot.
+    observable in {'qe', 'had', 'avail', 'reco'}; kind in {'abs', 'rel'}."""
+    try:
+        return _BIAS_XLABEL[(observable, kind)]
+    except KeyError as e:
+        raise ValueError(f"unknown (observable, kind) = {e.args[0]!r}")
+
+
+def bias_ylabel(kind):
+    """Return the dsigma/dE y-axis label for a 1-D bias plot.
+    Matches DSIGMA_DE_LABEL (MeV-scaled) for kind='abs' and a dimensionless
+    analogue for kind='rel'."""
+    return DSIGMA_DE_LABEL if kind == "abs" else DSIGMA_DREL_LABEL
+
+
+def enu_true_arr(arr, observable, *, vertex=False):
+    """Return Enu_true in GeV, filtered to the same selection bias_arr uses
+    for `observable` in {'qe', 'had', 'avail'}.
+
+    Used by validation_distributions.py to render the Enu_true input
+    distribution alongside the bias histogram so the inputs to the bias
+    calculation can be eyeballed per-variant."""
+    if observable == "qe":
+        sel = is_cc0pi_arr(arr, vertex=vertex)
+        return ak.to_numpy(arr['Enu_true'])[sel]
+    if observable in ("had", "avail"):
+        _, _, cc_mask = enu_had_arr(arr, vertex=vertex)
+        return ak.to_numpy(arr['Enu_true'])[np.asarray(cc_mask, dtype=bool)]
+    raise ValueError(f"unknown observable {observable!r}; use 'qe', 'had' or 'avail'")
+
+
+def enu_reco_arr(arr, observable, *, vertex=False):
+    """Return Enu_reco in GeV (the appropriate reconstruction for the given
+    observable), filtered to the same selection as bias_arr.
+
+      'qe'    -> Enu_QE (IOP paper Eq. 9, written into arr['Enu_QE'] by load_arrays)
+      'had'   -> ELep + ehad_with (charged-pion full E)
+      'avail' -> ELep + ehad_wo   (charged-pion KE only)
+    """
+    if observable == "qe":
+        sel = is_cc0pi_arr(arr, vertex=vertex)
+        return ak.to_numpy(arr['Enu_QE'])[sel]
+    if observable in ("had", "avail"):
+        bias_wo_GeV, bias_with_GeV, cc_mask = enu_had_arr(arr, vertex=vertex)
+        diff_GeV = bias_with_GeV if observable == "had" else bias_wo_GeV
+        enu_true_GeV = ak.to_numpy(arr['Enu_true'])[np.asarray(cc_mask, dtype=bool)]
+        return diff_GeV + enu_true_GeV
+    raise ValueError(f"unknown observable {observable!r}; use 'qe', 'had' or 'avail'")
+
+
 def smooth_shift_ratio(counts, edges, shift):
     """Analytical H(E - shift) / H(E) via centered finite-difference of log-counts.
 

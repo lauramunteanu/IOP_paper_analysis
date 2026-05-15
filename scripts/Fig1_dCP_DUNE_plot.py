@@ -104,7 +104,7 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm had}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90, 1.1)
-            plt.savefig("Fig1_plots/Fig1_DUNE_Enuhad_dCP.pdf")
+            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_Enuhad_dCP.pdf"))
 
         else:
             # Scale to expected DUNE νμ→νμ survival yield.
@@ -126,7 +126,7 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm had}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90, 1.1)
-            plt.savefig("Fig1_plots/Fig1_DUNE_Enuhad_dm32.pdf")
+            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_Enuhad_dm32.pdf"))
     else:
         if(IsdCP == True):
             counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"Nominal $\delta_{CP} = -\pi/2$", tol_dark, prob_default_nue, True, counts_nom)
@@ -136,7 +136,7 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm true}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90,1.1)
-            plt.savefig("Fig1_plots/Fig1_DUNE_EnuTrue_dCP.pdf")
+            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_EnuTrue_dCP.pdf"))
 
         else:
             counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$", tol_dark, prob_default_numu, True, counts_nom)
@@ -146,7 +146,7 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm true}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90,1.1)
-            plt.savefig("Fig1_plots/Fig1_DUNE_EnuTrue_dm32.pdf")
+            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_EnuTrue_dm32.pdf"))
     plt.close(fig)
     return
 

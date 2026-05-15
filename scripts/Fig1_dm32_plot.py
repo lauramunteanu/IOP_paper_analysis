@@ -109,7 +109,7 @@ def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
         ax.set_xlim(0,1200)
         ax_ratio.set_xlim(0,1200)
         ax_ratio.set_ylim(0.95,1.05)
-        plt.savefig("Fig1_plots/Fig1_EnuQE_dm32.pdf")
+        plt.savefig(outpath("Fig1_plots", "Fig1_EnuQE_dm32.pdf"))
         plt.close(fig)
 
     else:
@@ -122,7 +122,7 @@ def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
         ax.set_xlim(0,1200)
         ax_ratio.set_xlim(0,1200)
         ax_ratio.set_ylim(0.95,1.05)
-        plt.savefig("Fig1_plots/Fig1_EnuTrue_dm32.pdf")
+        plt.savefig(outpath("Fig1_plots", "Fig1_EnuTrue_dm32.pdf"))
         plt.close(fig)
     return
 

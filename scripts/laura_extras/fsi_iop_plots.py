@@ -1,28 +1,22 @@
 """Box-and-whisker summary plots for the FSI IOP paper.
 
-10 output figures (PNG + PDF) written to OUT_DIR, named in the same FigN_*
-style as the canonical scripts/ folder:
+5 figures × 2 flavours × 2 modes (abs, rel) = 20 output PDFs (PNG + PDF),
+written to OUT_DIR. Names follow the FigN_*_<flavour>_<mode>.pdf scheme:
 
-  Fig8_FSIvsNoFSI_{numu,numubar}    NuWro SF, FSI vs noFSI samples (2 variants)
-  Fig9_PiAbs_{numu,numubar}         NuWro SF FSI, kaskada_piN_abs_scale grid
-                                      (3 variants: 0.69 / nominal / 1.31)
-  Fig10_MFP_{numu,numubar}          NuWro SF FSI, kaskada_NN_mfp_scale grid
-                                      (3 variants: 0.7 / nominal / 1.3)
-  Fig11_GENIE_{numu,numubar}        GENIE NUISFLAT, four cascade tunes
-                                      (10a/b/c/d)
-  Fig12_EDRMF_{numu,numubar}        NEUT EDRMF vs RPWIA  (RPWIA paths are
-                                      placeholders; row is skipped if files
-                                      are missing)
+  Fig8_FSIvsNoFSI_{numu,numubar}_{abs,rel}
+  Fig9_PiAbs_{numu,numubar}_{abs,rel}
+  Fig10_MFP_{numu,numubar}_{abs,rel}
+  Fig11_GENIE_{numu,numubar}_{abs,rel}
+  Fig12_EDRMF_{numu,numubar}_{abs,rel}
 
 Each figure has 3 row-groups (HK Eν_QE, DUNE Eν_avail, DUNE Eν_had). Each row
 in a group is one variant rendered as a translucent histogram silhouette plus
 1σ box (16-84%), faint 90% whiskers (5-95%), median (white circle) and
 weighted mean (white diamond) markers.
 
-Path-fallback: if a file is missing, the loader transparently falls back to
-its `.bak.preOPpatch` or `.bak.preNNmfp` sibling. This lets the script run
-against the saved-aside backups while a fresh kaskada_piN_abs_scale /
-kaskada_NN_mfp_scale regen is still in flight on condor.
+mode='abs' shows (E_reco − E_true) in MeV; mode='rel' shows the same divided
+by E_true (dimensionless). Both share the same canonical CC0π / CC selections
+via FlatTreeMod.bias_arr.
 
 Set MAX_EVENTS=None for full statistics; small value gives fast layout iteration.
 """
@@ -39,7 +33,8 @@ from matplotlib.patches import Rectangle
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
-from FlatTreeMod import load_arrays  # noqa: E402  -- after sys.path tweak
+from FlatTreeMod import (load_arrays, bias_arr, REL_BIAS_XLIM,  # noqa: E402
+                         is_cc0pi_arr)
 
 # BW-specific font bump. The BW grid figures sit at 3.5" wide (one half of
 # \textwidth in LaTeX) with a lot of in-figure box content per row, so the
@@ -61,24 +56,41 @@ BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuw
 NEUT_BASE = "/eos/home-l/lamuntea/FSI_IOP_paper/neut_runs"
 NEUT_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"  # NEUT EDRMF/RPWIA samples — separate from NuWro BASE
 GENIE_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"  # existing GENIE NUISFLAT samples — separate from NuWro BASE
-OUT_DIR = "/eos/home-l/lamuntea/FSI_IOP_paper/run_genie_bw"
+# OUT_DIR is overridable via $OUTPUT_PLOTS_DIR for bulk regen into iop_plots/.
+# When set, BW outputs land in $OUTPUT_PLOTS_DIR/BW_summaries/ (a subdir, to
+# keep them grouped alongside the Fig{N}_plots/ subdirs the bias scripts use).
+_root = os.environ.get("OUTPUT_PLOTS_DIR")
+OUT_DIR = (os.path.join(_root, "BW_summaries") if _root
+           else "/eos/home-l/lamuntea/FSI_IOP_paper/run_genie_bw")
 MAX_EVENTS = None  # full stats (cache hit after first run)
 
 OUTER_ALPHA = 0.35
 
-XMIN_FIXED, XMAX_FIXED = -900.0, 300.0  # visible x-axis [MeV]
-HK_NBINS, HK_HIST_RANGE   = 200, (-1000.0, 1000.0)   # 10 MeV bins, [-1, +1] GeV
-DUNE_NBINS, DUNE_HIST_RANGE = 400, (-3000.0, 1000.0) # 10 MeV bins, [-3, +1] GeV
-HIST_FILL_ALPHA = 0.22    # translucent histogram silhouette
-WHISKER_ALPHA = 0.50      # faint whiskers
-BOX_LW = 1.4              # 1-sigma outline width
+# Per-mode plot limits. abs is MeV; rel is dimensionless (-E_true normalised).
+XLIM = {
+    "abs": (-900.0, 300.0),
+    "rel": REL_BIAS_XLIM,
+}
+HIST_RANGE_HK = {
+    "abs": (-1000.0, 1000.0),
+    "rel": (-1.0, 1.0),
+}
+HIST_RANGE_DUNE = {
+    "abs": (-3000.0, 1000.0),
+    "rel": (-3.0, 1.0),
+}
+HK_NBINS   = 200
+DUNE_NBINS = 400
+HIST_FILL_ALPHA = 0.22
+WHISKER_ALPHA = 0.50
+BOX_LW = 1.4
 
 
-def hist_params_for(obs_key):
-    """Pick (nbins, range) by experiment to match Jake's Fig3 / Fig4."""
+def hist_params_for(obs_key, mode):
+    """Pick (nbins, range) by experiment + mode."""
     if obs_key == "hk_qe":
-        return HK_NBINS, HK_HIST_RANGE
-    return DUNE_NBINS, DUNE_HIST_RANGE
+        return HK_NBINS, HIST_RANGE_HK[mode]
+    return DUNE_NBINS, HIST_RANGE_DUNE[mode]
 
 
 # Wong CB-friendly palette
@@ -92,18 +104,10 @@ COL_ORANGE = "#E69F00"
 
 CASCADE_COLORS = {"10a": COL_BLUE, "10b": COL_VERMILION,
                   "10c": COL_GREEN, "10d": COL_PURPLE}
-# Human-readable model names for the GENIE G18 tunes used in cascade
-# comparison plots. Used in legends and BW variant labels.
 GENIE_LABELS = {"10a": "hA2018", "10b": "hN2018",
                 "10c": "INCL++", "10d": "G4BC"}
 
-# ---------------------------------------------------------------------------
-# Path resolver: live files only. Returns None if the file is missing
-# (used for EDRMF/RPWIA placeholders so the corresponding rows skip cleanly).
-# Backup-fallback to .bak.preOPpatch was removed once the OP-patched regen
-# landed on 2026-05-03; if you need to read backups again, restore the
-# fallback or rename the .bak files back into place.
-# ---------------------------------------------------------------------------
+
 def resolve_path(path):
     if path and os.path.exists(path):
         return path
@@ -127,9 +131,6 @@ NUWRO_DUNE = {
     "numubar": {"FSI":   f"{BASE}/DUNE/DUNE_numub_FSI.flat.root",
                 "noFSI": f"{BASE}/DUNE/DUNE_numub_noFSI.flat.root"},
 }
-
-# kaskada_piN_abs_scale grid (069 = -31%, 131 = +31%). Nominal is the
-# top-level _FSI file (kaskada_piN_abs_scale defaults to 1.0).
 NUWRO_HK_PIABS = {
     ("numu",    "069"): f"{BASE}/HK/piabs/HK_numu_piabs069_FSI.flat.root",
     ("numu",    "131"): f"{BASE}/HK/piabs/HK_numu_piabs131_FSI.flat.root",
@@ -142,8 +143,6 @@ NUWRO_DUNE_PIABS = {
     ("numubar", "069"): f"{BASE}/DUNE/piabs/DUNE_numub_piabs069_FSI.flat.root",
     ("numubar", "131"): f"{BASE}/DUNE/piabs/DUNE_numub_piabs131_FSI.flat.root",
 }
-
-# kaskada_NN_mfp_scale grid (070 = 0.7, 130 = 1.3). Nominal is top-level _FSI.
 NUWRO_HK_MFP = {
     ("numu",    "0p7"): f"{BASE}/HK/ChangeMFP/HK_numu_0p7MFP_FSI.flat.root",
     ("numu",    "1p3"): f"{BASE}/HK/ChangeMFP/HK_numu_1p3MFP_FSI.flat.root",
@@ -156,9 +155,6 @@ NUWRO_DUNE_MFP = {
     ("numubar", "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_numub_0p7MFP_FSI.flat.root",
     ("numubar", "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_numub_1p3MFP_FSI.flat.root",
 }
-
-# GENIE 4-tune cascade comparison. Files moved into a GENIE/ subfolder when
-# the project share was reorganised (see scripts/move_genie.sh equivalent).
 GENIE_HK = {
     ("numu", t):    f"{GENIE_FILES_BASE}/HK/GENIE/T2KSK_unosc_FHC_numu_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
@@ -176,10 +172,6 @@ GENIE_DUNE.update({
     for t in ("10a", "10b", "10c", "10d")
 })
 
-# ---------------------------------------------------------------------------
-# NEUT EDRMF vs RPWIA paths. numu samples live in the project share; numubar
-# samples have not been produced yet (None -> row skipped silently).
-# ---------------------------------------------------------------------------
 NEUT_EDRMF = {
     "hk_numu":     f"{NEUT_FILES_BASE}/HK/NEUT_HK_EDRMF_numu.flat.root",
     "hk_numubar":  None,
@@ -200,6 +192,12 @@ OBS_LABELS = {
 }
 
 NU_LABELS = {"numu": r"$\nu_{\mu}$ FHC", "numubar": r"$\bar{\nu}_{\mu}$ RHC"}
+
+
+def _xlabel(mode):
+    if mode == "abs":
+        return r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]"
+    return r"$(E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}) / E_{\nu}^{\rm true}$"
 
 
 # ---------------------------------------------------------------------------
@@ -235,75 +233,38 @@ def stats(x, w):
 
 
 # ---------------------------------------------------------------------------
-# File readers — go through FlatTreeMod.load_arrays so the on-disk cache is
-# shared with all the canonical scripts/ figures. load_arrays is keyed on
-# (file path, size, mtime, branch list, max_events) → auto-busts when the
-# underlying ROOT file changes. The bias derivation below stays here in
-# laura_extras (it's specific to this BW summary; not in FlatTreeMod).
+# File readers — go through FlatTreeMod.load_arrays for the disk cache; the
+# observable extraction goes through FlatTreeMod.bias_arr so abs and rel use
+# the same canonical CC0π / CC selections as the parent Fig*_plot.py scripts.
 # ---------------------------------------------------------------------------
-def read_hk(path):
-    """HK QE bias [MeV] on derived CC0pi (cc=1, no charged-pi, no pi0)."""
+def read_hk(path, mode):
+    """HK QE bias on derived CC0π. Returns (x, w, mode_arr)."""
     a = load_arrays(path, max_events=MAX_EVENTS)
-    apdg = np.abs(a["pdg"])
-    n_chpi = ak.sum(apdg == 211, axis=1)
-    n_pi0 = ak.sum(apdg == 111, axis=1)
-    sel = (a["cc"] == 1) & (n_chpi == 0) & (n_pi0 == 0)
-    bias = (a["Enu_QE"] - a["Enu_true"]) * 1000.0
-    x = np.asarray(bias[sel])
+    x = bias_arr(a, "qe", kind=mode, vertex=False)
+    sel = is_cc0pi_arr(a, vertex=False)
     w = np.asarray(a["fScaleFactor"][sel])
-    mode = np.asarray(a["Mode"][sel])
-    return x, w, mode
+    mode_arr = np.asarray(a["Mode"][sel])
+    return x, w, mode_arr
 
 
-def read_dune(path):
-    """DUNE calorimetric bias [MeV], two definitions, on CC inclusive.
-    Returns (x_tpi, x_epi, w, mode).
+def read_dune(path, mode):
+    """DUNE calorimetric bias, two definitions, on CC inclusive.
+    Returns (x_tpi, x_epi, w, mode_arr).
     """
     a = load_arrays(path, max_events=MAX_EVENTS)
-    apdg = np.abs(a["pdg"])
-    p2 = a["px"] * a["px"] + a["py"] * a["py"] + a["pz"] * a["pz"]
-    m2 = a["E"] * a["E"] - p2
-    KE = a["E"] - ak.where(m2 > 0, np.sqrt(np.maximum(m2, 0.0)), 0.0)
-
-    is_cc = a["cc"] == 1
-    heavy_bar = (apdg > 2300) & (apdg < 3000)
-    is_e = apdg == 11
-    is_mid = (apdg > 17) & (apdg < 2000)
-    is_chpi = apdg == 211
-    is_proton = apdg == 2212
-
-    contrib_tpi = ak.where(heavy_bar, a["E"],
-                  ak.where(is_e | is_mid, a["E"],
-                  ak.where(is_proton, KE, 0.0)))
-    contrib_epi = ak.where(heavy_bar, a["E"],
-                  ak.where((is_e | is_mid) & ~is_chpi, a["E"],
-                  ak.where(is_proton | is_chpi, KE, 0.0)))
-
-    ehad_tpi = ak.sum(contrib_tpi, axis=1)
-    ehad_epi = ak.sum(contrib_epi, axis=1)
-    bias_tpi = ((a["ELep"] + ehad_tpi) - a["Enu_true"]) * 1000.0
-    bias_epi = ((a["ELep"] + ehad_epi) - a["Enu_true"]) * 1000.0
-    sel = is_cc
-    x_tpi = np.asarray(bias_tpi[sel])
-    x_epi = np.asarray(bias_epi[sel])
-    w = np.asarray(a["fScaleFactor"][sel])
-    mode = np.asarray(a["Mode"][sel])
-    return x_tpi, x_epi, w, mode
+    x_tpi = bias_arr(a, "had",   kind=mode, vertex=False)
+    x_epi = bias_arr(a, "avail", kind=mode, vertex=False)
+    is_cc = np.asarray(a["cc"], dtype=bool)
+    w = np.asarray(a["fScaleFactor"][is_cc])
+    mode_arr = np.asarray(a["Mode"][is_cc])
+    return x_tpi, x_epi, w, mode_arr
 
 
 # ---------------------------------------------------------------------------
 # Drawing primitives
 # ---------------------------------------------------------------------------
 def draw_hybrid_hist(ax, y, half, x, w, color,
-                     nbins=HK_NBINS, hist_range=HK_HIST_RANGE):
-    """Histogram silhouette + 1-sigma box outline + faint 90% whiskers +
-    median/mean markers, all in `color`. Skips drawing if x is empty.
-
-    Weights are divided by bin width so the silhouette shape is dσ/dE in
-    arbitrary fScaleFactor / MeV units. The silhouette is then normalised
-    to peak=1 to fit a row, but the underlying shape is now consistent with
-    the validation distributions that show absolute dσ/dE.
-    """
+                     nbins=HK_NBINS, hist_range=HIST_RANGE_HK["abs"]):
     if x is None or len(x) == 0:
         return
     s = stats(x, w)
@@ -346,10 +307,6 @@ def setup_axes(ax, n_groups, xlabel, xmin, xmax, group_labels, group_centers,
     if show_ylabels:
         ax.set_yticklabels(group_labels)
     else:
-        # Strip the labels entirely. Left margin is reserved by an explicit
-        # subplots_adjust call in _make_figure (NOT constrained_layout) so
-        # the plot area still aligns with the numu figure when placed
-        # side-by-side in LaTeX.
         ax.set_yticklabels([])
     ax.axvline(0, color="gray", ls="--", lw=0.7)
     ax.set_xlabel(xlabel)
@@ -367,12 +324,6 @@ def save_standalone_legend(handles, ncol, fname, fig_w=10.0, fig_h=0.6,
 
 
 def save_strip_legend(handles, fname, fig_w=12.0, fig_h=0.5):
-    """Thin horizontal-strip legend with a single row of items inside a
-    rectangular frame, no title. Designed to drop under a side-by-side
-    numu/numubar BW pair in a LaTeX figure
-    (\\includegraphics[width=\\linewidth]{legend_*.pdf}). Pair
-    legend_metrics with the per-set colour strip
-    (legend_FigN_<stem>) for the full key."""
     fig = plt.figure(figsize=(fig_w, fig_h))
     fig.legend(handles=handles, loc="center", ncol=len(handles),
                frameon=True, framealpha=1.0,
@@ -385,89 +336,73 @@ def save_strip_legend(handles, fname, fig_w=12.0, fig_h=0.5):
 
 
 # ---------------------------------------------------------------------------
-# In-process memoisation for the (already-cached) reads.
-# Disk cache is provided by FlatTreeMod.load_arrays at ~/.cache/iop_paper/ —
-# shared with every other script. We just memoise the post-derivation result
-# (x, w, mode) so repeated calls in one Python process don't re-do the
-# CC0π / Tpi / Epi computation on the awkward arrays.
+# In-process memoisation. Cache key includes mode so abs and rel reads are
+# distinct entries. Disk cache lives in load_arrays at ~/.cache/iop_paper/.
 # ---------------------------------------------------------------------------
 _CACHE = {}
 
 
-def get_hk(path):
+def get_hk(path, mode):
     p = resolve_path(path)
     if p is None:
         return None
-    if ("hk", p) not in _CACHE:
-        print(f"  deriving hk from: {os.path.basename(p)}")
-        _CACHE[("hk", p)] = read_hk(p)
-    return _CACHE[("hk", p)]
+    if ("hk", p, mode) not in _CACHE:
+        print(f"  deriving hk[{mode}] from: {os.path.basename(p)}")
+        _CACHE[("hk", p, mode)] = read_hk(p, mode)
+    return _CACHE[("hk", p, mode)]
 
 
-def get_dune(path):
+def get_dune(path, mode):
     p = resolve_path(path)
     if p is None:
         return None
-    if ("dune", p) not in _CACHE:
-        print(f"  deriving dune from: {os.path.basename(p)}")
-        _CACHE[("dune", p)] = read_dune(p)
-    return _CACHE[("dune", p)]
+    if ("dune", p, mode) not in _CACHE:
+        print(f"  deriving dune[{mode}] from: {os.path.basename(p)}")
+        _CACHE[("dune", p, mode)] = read_dune(p, mode)
+    return _CACHE[("dune", p, mode)]
 
 
-def get_obs(path, obs_kind):
+def get_obs(path, obs_kind, mode):
     """Generic per-observable getter. obs_kind in {hk_qe, dune_epi, dune_tpi}.
     Returns (x, w) or None if file unresolvable."""
     if obs_kind == "hk_qe":
-        out = get_hk(path)
+        out = get_hk(path, mode)
         if out is None: return None
         x, w, _ = out
         return x, w
-    out = get_dune(path)
+    out = get_dune(path, mode)
     if out is None: return None
     x_tpi, x_epi, w, _ = out
     return (x_tpi, w) if obs_kind == "dune_tpi" else (x_epi, w)
 
 
-def get_obs_with_mode(path, obs_kind):
+def get_obs_with_mode(path, obs_kind, mode):
     """Like get_obs but also returns the per-event Mode array.
-    Returns (x, w, mode) or None if file unresolvable. Used by the
-    validation plot to highlight |Mode|==16 (coherent π production)."""
+    Used by the validation plot to highlight |Mode|==16."""
     if obs_kind == "hk_qe":
-        out = get_hk(path)
+        out = get_hk(path, mode)
         if out is None: return None
-        return out  # already (x, w, mode)
-    out = get_dune(path)
+        return out  # already (x, w, mode_arr)
+    out = get_dune(path, mode)
     if out is None: return None
-    x_tpi, x_epi, w, mode = out
-    return ((x_tpi, w, mode) if obs_kind == "dune_tpi"
-            else (x_epi, w, mode))
+    x_tpi, x_epi, w, mode_arr = out
+    return ((x_tpi, w, mode_arr) if obs_kind == "dune_tpi"
+            else (x_epi, w, mode_arr))
 
 
 def hk_or_dune_path(obs_kind, paths_hk, paths_dune):
-    """Pick HK path for hk_qe rows, DUNE path otherwise."""
     return paths_hk if obs_kind == "hk_qe" else paths_dune
 
 
 # ---------------------------------------------------------------------------
 # Generic figure builder. variants: list of (label, color, paths_per_obs)
-# where paths_per_obs is a dict {obs_key: file_path}.
 # ---------------------------------------------------------------------------
 OBS_GROUPS = [("hk_qe", "hk"),
               ("dune_epi", "dune_epi"),
               ("dune_tpi", "dune_tpi")]
 
 
-def _make_figure(fname_stem, flavour, variants, group_label_suffix=""):
-    """variants: list of dicts with keys
-        label (str),  color (hex),  paths (dict obs_key -> file_path)
-    Each row in a group is one variant. Skips a variant in a row if the
-    corresponding file unresolvable.
-
-    numu plots include the y-axis labels (HK Eν^QE / DUNE Eν^avail / DUNE
-    Eν^had). numubar plots suppress them — the LaTeX figure environments
-    place the numubar to the right of the numu so the shared y-axis
-    labels apply to both. Both flavours use the same canvas dimensions
-    (4.0" × ...) so heights remain matched in LaTeX."""
+def _make_figure(fname_stem, flavour, mode, variants, group_label_suffix=""):
     obs_keys = [k for k, _ in OBS_GROUPS]
     n_groups = len(obs_keys)
     rows_per_group = len(variants)
@@ -475,21 +410,16 @@ def _make_figure(fname_stem, flavour, variants, group_label_suffix=""):
     group_pitch = rows_per_group * sub_pitch + 0.30
     half = sub_pitch / 2 * 0.85
     show_ylabels = (flavour == "numu")
-    # Canvas: 4.0" wide. Use explicit subplots_adjust (not constrained_layout)
-    # so that the plot-area position is FIXED regardless of whether the
-    # y-tick labels are present (numu) or absent (numubar). This guarantees
-    # the data plot areas align pixel-for-pixel between the paired
-    # numu/numubar PDFs in LaTeX.
     fig, ax = plt.subplots(figsize=(4.0, group_pitch * n_groups + 1.6))
     fig.subplots_adjust(left=0.22, right=0.97, top=0.97, bottom=0.13)
 
     group_centers = []
     for gi, ok in enumerate(obs_keys):
         y0 = gi * group_pitch
-        nbins, hrange = hist_params_for(ok)
+        nbins, hrange = hist_params_for(ok, mode)
         for vi, v in enumerate(variants):
             path = v["paths"].get(ok)
-            res = get_obs(path, ok) if path else None
+            res = get_obs(path, ok, mode) if path else None
             if res is None:
                 continue
             x, w = res
@@ -503,14 +433,12 @@ def _make_figure(fname_stem, flavour, variants, group_label_suffix=""):
     ax.set_ylim(group_pitch * (n_groups - 1) + (rows_per_group - 1) * sub_pitch + 0.4,
                 -0.4)
 
+    xmin, xmax = XLIM[mode]
     ylabels = [OBS_LABELS[ok] + group_label_suffix for ok in obs_keys]
-    setup_axes(ax, n_groups, r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]",
-               XMIN_FIXED, XMAX_FIXED, ylabels, group_centers,
+    setup_axes(ax, n_groups, _xlabel(mode), xmin, xmax, ylabels, group_centers,
                show_ylabels=show_ylabels)
 
-    out = f"{fname_stem}_{flavour}"
-    # No bbox_inches="tight" — keep canvas exactly figsize so numu/numubar
-    # tile pixel-identically.
+    out = f"{fname_stem}_{flavour}_{mode}"
     plt.savefig(f"{OUT_DIR}/{out}.png", dpi=180)
     plt.savefig(f"{OUT_DIR}/{out}.pdf")
     plt.close(fig)
@@ -520,7 +448,7 @@ def _make_figure(fname_stem, flavour, variants, group_label_suffix=""):
 # ---------------------------------------------------------------------------
 # Fig 8 -- FSI vs noFSI, NuWro SF
 # ---------------------------------------------------------------------------
-def make_fsi_compare_figure(flavour):
+def make_fsi_compare_figure(flavour, mode):
     variants = [
         {"label": "with FSI", "color": COL_GREY, "paths": {
             "hk_qe":    NUWRO_HK[flavour]["FSI"],
@@ -533,16 +461,13 @@ def make_fsi_compare_figure(flavour):
             "dune_tpi": NUWRO_DUNE[flavour]["noFSI"],
         }},
     ]
-    _make_figure("Fig8_FSIvsNoFSI", flavour, variants)
+    _make_figure("Fig8_FSIvsNoFSI", flavour, mode, variants)
 
 
 # ---------------------------------------------------------------------------
 # Fig 9 -- piabs grid (kaskada_piN_abs_scale = 0.69 / 1.0 / 1.31)
 # ---------------------------------------------------------------------------
-def make_pi_abs_figure(flavour):
-    """Replaces the legacy event-reweight version. Now reads the actual
-    cascade samples (kaskada_piN_abs_scale dial) so the variation is real
-    FSI physics rather than a Mode-dependent reweight."""
+def make_pi_abs_figure(flavour, mode):
     variants = [
         {"label": r"$\pi_{\rm abs}$ +31\%", "color": COL_VERMILION, "paths": {
             "hk_qe":    NUWRO_HK_PIABS[(flavour, "131")],
@@ -560,13 +485,13 @@ def make_pi_abs_figure(flavour):
             "dune_tpi": NUWRO_DUNE_PIABS[(flavour, "069")],
         }},
     ]
-    _make_figure("Fig9_PiAbs", flavour, variants)
+    _make_figure("Fig9_PiAbs", flavour, mode, variants)
 
 
 # ---------------------------------------------------------------------------
 # Fig 10 -- NN_mfp grid (kaskada_NN_mfp_scale = 0.7 / 1.0 / 1.3)
 # ---------------------------------------------------------------------------
-def make_mfp_compare_figure(flavour):
+def make_mfp_compare_figure(flavour, mode):
     variants = [
         {"label": r"$0.7 \times \rm MFP$", "color": COL_VERMILION, "paths": {
             "hk_qe":    NUWRO_HK_MFP[(flavour, "0p7")],
@@ -584,13 +509,13 @@ def make_mfp_compare_figure(flavour):
             "dune_tpi": NUWRO_DUNE_MFP[(flavour, "1p3")],
         }},
     ]
-    _make_figure("Fig10_MFP", flavour, variants)
+    _make_figure("Fig10_MFP", flavour, mode, variants)
 
 
 # ---------------------------------------------------------------------------
 # Fig 11 -- GENIE cascade tunes (G18_10a/b/c/d)
 # ---------------------------------------------------------------------------
-def make_cascade_compare_figure(flavour):
+def make_cascade_compare_figure(flavour, mode):
     tunes = ["10a", "10b", "10c", "10d"]
     variants = [
         {"label": GENIE_LABELS[t], "color": CASCADE_COLORS[t], "paths": {
@@ -600,13 +525,13 @@ def make_cascade_compare_figure(flavour):
         }}
         for t in tunes
     ]
-    _make_figure("Fig11_GENIE", flavour, variants)
+    _make_figure("Fig11_GENIE", flavour, mode, variants)
 
 
 # ---------------------------------------------------------------------------
-# Fig 12 -- NEUT EDRMF vs RPWIA (RPWIA paths are PLACEHOLDERS for now)
+# Fig 12 -- NEUT EDRMF vs RPWIA
 # ---------------------------------------------------------------------------
-def make_edrmf_compare_figure(flavour):
+def make_edrmf_compare_figure(flavour, mode):
     hk_key = f"hk_{flavour}"
     dune_key = f"dune_{flavour}"
     variants = [
@@ -621,7 +546,7 @@ def make_edrmf_compare_figure(flavour):
             "dune_tpi": NEUT_RPWIA[dune_key],
         }},
     ]
-    _make_figure("Fig12_EDRMF", flavour, variants)
+    _make_figure("Fig12_EDRMF", flavour, mode, variants)
 
 
 # ---------------------------------------------------------------------------
@@ -648,12 +573,8 @@ quantity_handles_hybrid = [
 
 
 def _save_all_legends():
-    """One combined legend per BW set — row 1 = metric markers (1σ range,
-    90% range, median, mean), row 2 = variant colour key. No frame, both
-    rows centered horizontally. Designed to drop above the side-by-side
-    numu/numubar BW pair in LaTeX with width=\\linewidth.
-    Pair canvas (numu 4" + numubar 4" = 8") shrinks to \\linewidth in
-    LaTeX, so the legend canvas is also 8" so it tiles cleanly."""
+    """One combined legend per BW set — row 1 = metric markers, row 2 =
+    variant colour key. Mode-agnostic (same legends for abs and rel)."""
     from FlatTreeMod import save_bw_legend
     BW_PAIR_WIDTH = 8.0
     save_bw_legend(
@@ -690,9 +611,7 @@ def _save_all_legends():
 
 
 # ---------------------------------------------------------------------------
-# Variant catalogue — exposed so other scripts (validation, table) can walk
-# the exact same set of (category, variant, paths) tuples that drive the BW
-# plots above.
+# Variant catalogue — exposed for the validation/variation-table scripts.
 # ---------------------------------------------------------------------------
 def _hk_or_dune(obs_key, hk_path, dune_path):
     return hk_path if obs_key == "hk_qe" else dune_path
@@ -708,8 +627,6 @@ def variants_fsi(flav):
 
 
 def variants_piabs(flav):
-    # NB: '%' is escaped as '\%' so labels render correctly under
-    # matplotlib's usetex=True (otherwise LaTeX treats % as a comment).
     return [
         (r"$\pi_{\rm abs}$ -31\%", COL_BLUE, lambda obs: _hk_or_dune(
             obs, NUWRO_HK_PIABS[(flav, "069")], NUWRO_DUNE_PIABS[(flav, "069")])),
@@ -763,17 +680,20 @@ CATEGORY_VARIANTS = [
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     print(f"MAX_EVENTS = {MAX_EVENTS}\n")
-    for flavour in ("numu", "numubar"):
-        print(f"=== {flavour} FSI vs noFSI ===")
-        make_fsi_compare_figure(flavour)
-        print(f"=== {flavour} pi-abs (kaskada_piN_abs_scale grid) ===")
-        make_pi_abs_figure(flavour)
-        print(f"=== {flavour} NN_mfp (kaskada_NN_mfp_scale grid) ===")
-        make_mfp_compare_figure(flavour)
-        print(f"=== {flavour} GENIE cascade tunes ===")
-        make_cascade_compare_figure(flavour)
-        print(f"=== {flavour} NEUT EDRMF vs RPWIA (placeholder) ===")
-        make_edrmf_compare_figure(flavour)
+    os.makedirs(OUT_DIR, exist_ok=True)
+    for mode in ("abs", "rel"):
+        print(f"\n##### mode = {mode} #####\n")
+        for flavour in ("numu", "numubar"):
+            print(f"=== {flavour}[{mode}] FSI vs noFSI ===")
+            make_fsi_compare_figure(flavour, mode)
+            print(f"=== {flavour}[{mode}] pi-abs ===")
+            make_pi_abs_figure(flavour, mode)
+            print(f"=== {flavour}[{mode}] NN_mfp ===")
+            make_mfp_compare_figure(flavour, mode)
+            print(f"=== {flavour}[{mode}] GENIE cascade tunes ===")
+            make_cascade_compare_figure(flavour, mode)
+            print(f"=== {flavour}[{mode}] NEUT EDRMF vs RPWIA ===")
+            make_edrmf_compare_figure(flavour, mode)
     print("\n=== standalone legends ===")
     _save_all_legends()
     print("\nDONE")

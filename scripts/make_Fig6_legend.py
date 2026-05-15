@@ -16,7 +16,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 from FlatTreeMod import save_strip_legend  # noqa: E402
 
-OUT_DIR = os.path.join(_HERE, "Fig6_plots")
+OUT_DIR = os.path.join(os.environ.get("OUTPUT_PLOTS_DIR", _HERE), "Fig6_plots")
 
 
 def main():

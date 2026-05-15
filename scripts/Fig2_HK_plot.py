@@ -2,19 +2,26 @@ from FlatTreeMod import *
 from collections import defaultdict
 ROOT.gROOT.SetBatch(True)
 
+# Per-mode bin spec for the HK CC0pi bias histogram (with Mode breakdown).
+BIN_SPECS = {
+    "abs": dict(bin_width=10.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 300.0)),
+    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
+}
 
-def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, vertex=False):
+
+def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=False):
   fig, ax = make_fig('single')
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
+  diff_sel = bias_arr(arr, "qe", kind=mode, vertex=vertex)
+  # Need the Mode array on the same CC0pi selection as diff_sel.
   sel = is_cc0pi_arr(arr, vertex=vertex)
-  diff_all = (np.asarray(arr['Enu_QE']) - np.asarray(arr['Enu_true'])) * 1000.0
   modes = np.asarray(arr['Mode'])
-  diff_sel = diff_all[sel]
   modes_sel = modes[sel]
   diff_by_mode = {int(m): diff_sel[modes_sel == m] for m in np.unique(modes_sel)}
 
-  bin_width = 10.0
-  bins = np.arange(-1000, 1000, step=bin_width)
+  spec = BIN_SPECS[mode]
+  bin_width = spec["bin_width"]
+  bins = np.arange(spec["lo"], spec["hi"] + bin_width, step=bin_width)
   fScaleFactor = float(np.max(arr['fScaleFactor']))
   weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(diff_sel)
 
@@ -34,20 +41,25 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, vertex=False):
             color=mode_colors.get(m, "gray"), linewidth=1.4,
             linestyle="--", label=f"Mode {m}")
 
-  ax.set_xlim(-900, 300)
-  ax.set_xlabel(r"$E_{\nu}^{\rm QE} - E_{\nu}^{\rm true}$ [MeV]")
-  ax.set_ylabel(DSIGMA_DE_LABEL)
+  ax.set_xlim(*spec["xlim"])
+  ax.set_xlabel(bias_xlabel("qe", mode))
+  ax.set_ylabel(bias_ylabel(mode))
   ax.legend(loc='best')
-  plt.savefig(f"Fig2_plots/Fig2_HK_EnuRecoBias_{plot_name}.pdf")
+  plt.savefig(outpath("Fig2_plots", f"Fig2_HK_EnuRecoBias_{plot_name}_{mode}.pdf"))
+  plt.close(fig)
 
 
 _events = -1
 # noFSI line now from the dedicated noFSI file with vertex=False (the FSI
 # vertex stack is biased by NuWro binding-energy bookkeeping at cascade exit;
 # loading the noFSI sample sidesteps that).
-plot_Enu_bias(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root"),
-              label=r"no FSI $\nu_{\mu}$", isNuBar=False, nEvents=_events,
-              plot_name="noFSI_numu", vertex=False)
-plot_Enu_bias(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root"),
-              label=r"no FSI $\bar{\nu}_{\mu}$", isNuBar=True, nEvents=_events,
-              plot_name="noFSI_numubar", vertex=False)
+_CONFIGS = [
+    dict(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root"),
+         label=r"no FSI $\nu_{\mu}$", isNuBar=False, plot_name="noFSI_numu"),
+    dict(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root"),
+         label=r"no FSI $\bar{\nu}_{\mu}$", isNuBar=True, plot_name="noFSI_numubar"),
+]
+
+for mode in ("abs", "rel"):
+    for cfg in _CONFIGS:
+        plot_Enu_bias(nEvents=_events, mode=mode, vertex=False, **cfg)

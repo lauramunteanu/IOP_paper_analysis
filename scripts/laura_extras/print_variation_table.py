@@ -1,53 +1,60 @@
 """LaTeX variation table across the 5 plot categories from fsi_iop_plots.py.
 
-For each (category, flavour, observable), prints the range of weighted medians
-and weighted means across the variants in that category (max − min). Cells are
-shaded pale red where the range exceeds:
-   5 MeV  for HK observables
-  15 MeV  for DUNE observables
+Two tables are written, one per bias mode:
+  variation_table_abs.tex   --  bias in MeV (shading threshold:  5 MeV HK / 15 MeV DUNE)
+  variation_table_rel.tex   --  bias dimensionless (E_reco-E_true)/E_true
+                                (shading threshold: 0.01 HK / 0.005 DUNE)
 
-Categories (mirroring fsi_iop_plots.py, all corresponding to the 5 plots):
+For each (category, flavour, observable), prints the mean-driven (max,min) variant
+pair: report mean[v_max] - mean[v_min] AND |median[v_max] - median[v_min]| for
+that same pair (the median sub-column is NOT independently re-extremised).
+
+Categories (mirroring fsi_iop_plots.py):
   - FSI vs noFSI         (2 variants)
-  - π_abs ±31%           (3 variants: 069, nominal, 131)
-  - NN MFP ±30%          (3 variants: 0.7, nominal, 1.3)
+  - pi_abs +-31%          (3 variants: 069, nominal, 131)
+  - NN MFP +-30%          (3 variants: 0.7, nominal, 1.3)
   - GENIE cascade        (4 variants: G18_10a/b/c/d)
-  - EDRMF vs RPWIA       (2 variants -- RPWIA placeholders; row prints '--' if
-                          its files don't resolve)
+  - EDRMF vs RPWIA       (2 variants -- numubar EDRMF cells emit blank)
 
-Shares the on-disk pickle cache with fsi_iop_plots.py:
-   /eos/home-l/lamuntea/FSI_IOP_paper/run_genie_bw/_cache/
-
-Path-fallback to *.bak.preOPpatch / *.bak.preNNmfp keeps this runnable while
-the live regen is in flight.
+Shares the on-disk pickle cache with fsi_iop_plots.py via FlatTreeMod.load_arrays
++ FlatTreeMod.bias_arr.
 """
 import os
 import sys
 import numpy as np
 import awkward as ak
 
-# Share the FlatTreeMod on-disk cache (~/.cache/iop_paper/) instead of using
-# a separate one — keeps this script in lock-step with fsi_iop_plots.py and
-# all the canonical figures. load_arrays auto-busts on file mtime/size change.
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
-from FlatTreeMod import load_arrays  # noqa: E402
+from FlatTreeMod import load_arrays, bias_arr, is_cc0pi_arr  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration (kept in sync with fsi_iop_plots.py)
 # ---------------------------------------------------------------------------
 BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031_morestats"
 NEUT_BASE = "/eos/home-l/lamuntea/FSI_IOP_paper/neut_runs"
-GENIE_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"  # existing GENIE NUISFLAT samples — separate from NuWro BASE
+GENIE_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"
 MAX_EVENTS = None
 
-THRESH_HK   = 5.0   # MeV
-THRESH_DUNE = 15.0  # MeV
+# Per-mode shading thresholds. abs in MeV; rel dimensionless.
+THRESH_BY_MODE = {
+    "abs": {"hk": 5.0,   "dune": 15.0},
+    "rel": {"hk": 0.01,  "dune": 0.005},
+}
+
+# Number-formatting per mode (LaTeX cell values).
+FMT_BY_MODE = {
+    "abs": "{:.1f}",
+    "rel": "{:.3f}",
+}
+
+UNITS_BY_MODE = {
+    "abs": "[MeV]",
+    "rel": "[dimensionless]",
+}
 
 
-# ---------------------------------------------------------------------------
-# File catalogues (must match fsi_iop_plots.py)
-# ---------------------------------------------------------------------------
 NUWRO_HK = {
     "numu":    {"FSI":   f"{BASE}/HK/HK_numu_FSI.flat.root",
                 "noFSI": f"{BASE}/HK/HK_numu_noFSI.flat.root"},
@@ -103,7 +110,7 @@ GENIE_DUNE.update({
 _NEUT_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"
 NEUT_EDRMF = {
     ("numu",    "hk"):   f"{_NEUT_FILES_BASE}/HK/NEUT_HK_EDRMF_numu.flat.root",
-    ("numubar", "hk"):   None,  # no antineutrino EDRMF sample
+    ("numubar", "hk"):   None,
     ("numu",    "dune"): f"{_NEUT_FILES_BASE}/DUNE/DUNE_EDRMF_numu.root",
     ("numubar", "dune"): None,
 }
@@ -120,16 +127,10 @@ OBS_LABELS_LATEX = {
     "dune_tpi": r"DUNE $E_{\nu}^{\mathrm{had}}$",
 }
 FLAV_LATEX = {"numu": r"$\nu_\mu$", "numubar": r"$\bar\nu_\mu$"}
-THRESH = {"hk_qe": THRESH_HK, "dune_epi": THRESH_DUNE, "dune_tpi": THRESH_DUNE}
+EXP_BY_OBS = {"hk_qe": "hk", "dune_epi": "dune", "dune_tpi": "dune"}
 
 
-# ---------------------------------------------------------------------------
-# Path resolver + cache + readers (lifted from fsi_iop_plots.py)
-# ---------------------------------------------------------------------------
 def resolve_path(path):
-    """Live files only. Returns None if missing (so EDRMF/RPWIA placeholder
-    rows skip cleanly). The .bak.preOPpatch fallback was removed once the
-    OP-patched regen landed on 2026-05-03."""
     if path and os.path.exists(path):
         return path
     return None
@@ -154,102 +155,59 @@ def weighted_mean(x, w):
     return float(np.average(x[keep], weights=w[keep]))
 
 
-def _read_hk(path):
+# ---------------------------------------------------------------------------
+# Per-observable readers go through FlatTreeMod.bias_arr so the abs / rel
+# distinction is honoured uniformly.
+# ---------------------------------------------------------------------------
+def _read_hk(path, mode):
     a = load_arrays(path, max_events=MAX_EVENTS)
-    apdg = np.abs(a["pdg"])
-    n_chpi = ak.sum(apdg == 211, axis=1)
-    n_pi0 = ak.sum(apdg == 111, axis=1)
-    sel = (a["cc"] == 1) & (n_chpi == 0) & (n_pi0 == 0)
-    bias = (a["Enu_QE"] - a["Enu_true"]) * 1000.0
-    x = np.asarray(bias[sel])
+    x = bias_arr(a, "qe", kind=mode, vertex=False)
+    sel = is_cc0pi_arr(a, vertex=False)
     w = np.asarray(a["fScaleFactor"][sel])
-    mode = np.asarray(a["Mode"][sel])
-    return x, w, mode
+    return x, w
 
 
-def _read_dune(path):
+def _read_dune(path, mode, observable):
+    """observable in {'had', 'avail'}."""
     a = load_arrays(path, max_events=MAX_EVENTS)
-    apdg = np.abs(a["pdg"])
-    p2 = a["px"] * a["px"] + a["py"] * a["py"] + a["pz"] * a["pz"]
-    m2 = a["E"] * a["E"] - p2
-    KE = a["E"] - ak.where(m2 > 0, np.sqrt(np.maximum(m2, 0.0)), 0.0)
-    is_cc = a["cc"] == 1
-    heavy_bar = (apdg > 2300) & (apdg < 3000)
-    is_e = apdg == 11
-    is_mid = (apdg > 17) & (apdg < 2000)
-    is_chpi = apdg == 211
-    is_proton = apdg == 2212
-    contrib_tpi = ak.where(heavy_bar, a["E"],
-                  ak.where(is_e | is_mid, a["E"],
-                  ak.where(is_proton, KE, 0.0)))
-    contrib_epi = ak.where(heavy_bar, a["E"],
-                  ak.where((is_e | is_mid) & ~is_chpi, a["E"],
-                  ak.where(is_proton | is_chpi, KE, 0.0)))
-    ehad_tpi = ak.sum(contrib_tpi, axis=1)
-    ehad_epi = ak.sum(contrib_epi, axis=1)
-    bias_tpi = ((a["ELep"] + ehad_tpi) - a["Enu_true"]) * 1000.0
-    bias_epi = ((a["ELep"] + ehad_epi) - a["Enu_true"]) * 1000.0
-    sel = is_cc
-    x_tpi = np.asarray(bias_tpi[sel])
-    x_epi = np.asarray(bias_epi[sel])
+    x = bias_arr(a, observable, kind=mode, vertex=False)
+    sel = np.asarray(a["cc"], dtype=bool)
     w = np.asarray(a["fScaleFactor"][sel])
-    mode = np.asarray(a["Mode"][sel])
-    return x_tpi, x_epi, w, mode
+    return x, w
 
 
-# In-process memoisation for repeated calls in one run; disk cache lives in
-# load_arrays (shared with fsi_iop_plots.py and all canonical scripts).
 _CACHE = {}
 
 
-def get_hk(path):
+def get_xw(path, obs_key, mode):
+    """Returns (x, w) or None if file unresolvable."""
     p = resolve_path(path)
-    if p is None: return None
-    if ("hk", p) not in _CACHE:
-        _CACHE[("hk", p)] = _read_hk(p)
-    return _CACHE[("hk", p)]
-
-
-def get_dune(path):
-    p = resolve_path(path)
-    if p is None: return None
-    if ("dune", p) not in _CACHE:
-        _CACHE[("dune", p)] = _read_dune(p)
-    return _CACHE[("dune", p)]
-
-
-def get_xw(path, obs_key):
-    if obs_key == "hk_qe":
-        out = get_hk(path)
-        if out is None: return None
-        x, w, _ = out
-        return x, w
-    out = get_dune(path)
-    if out is None: return None
-    x_tpi, x_epi, w, _ = out
-    return (x_tpi, w) if obs_key == "dune_tpi" else (x_epi, w)
+    if p is None:
+        return None
+    key = (p, obs_key, mode)
+    if key not in _CACHE:
+        if obs_key == "hk_qe":
+            _CACHE[key] = _read_hk(p, mode)
+        else:
+            observable = "had" if obs_key == "dune_tpi" else "avail"
+            _CACHE[key] = _read_dune(p, mode, observable)
+    return _CACHE[key]
 
 
 # ---------------------------------------------------------------------------
-# Variant catalogue per category
-# Each category yields a list of (variant_label, path_for_obs_key_callable).
-# path_for_obs_key_callable(flavour, obs_key) -> path or None
+# Path callables per category
 # ---------------------------------------------------------------------------
 def _hk_or_dune(obs_key, hk_path, dune_path):
     return hk_path if obs_key == "hk_qe" else dune_path
 
 
 def fsi_paths(flav, obs_key, which):
-    return _hk_or_dune(obs_key,
-                       NUWRO_HK[flav][which],
-                       NUWRO_DUNE[flav][which])
+    return _hk_or_dune(obs_key, NUWRO_HK[flav][which], NUWRO_DUNE[flav][which])
 
 
 def piabs_paths(flav, obs_key, scale):
     if scale == "100":
-        return _hk_or_dune(obs_key,
-                           NUWRO_HK[flav]["FSI"],
-                           NUWRO_DUNE[flav]["FSI"])
+        return _hk_or_dune(obs_key, NUWRO_HK[flav]["FSI"], NUWRO_DUNE[flav]["FSI"])
     return _hk_or_dune(obs_key,
                        NUWRO_HK_PIABS[(flav, scale)],
                        NUWRO_DUNE_PIABS[(flav, scale)])
@@ -257,18 +215,14 @@ def piabs_paths(flav, obs_key, scale):
 
 def mfp_paths(flav, obs_key, scale):
     if scale == "1p0":
-        return _hk_or_dune(obs_key,
-                           NUWRO_HK[flav]["FSI"],
-                           NUWRO_DUNE[flav]["FSI"])
+        return _hk_or_dune(obs_key, NUWRO_HK[flav]["FSI"], NUWRO_DUNE[flav]["FSI"])
     return _hk_or_dune(obs_key,
                        NUWRO_HK_MFP[(flav, scale)],
                        NUWRO_DUNE_MFP[(flav, scale)])
 
 
 def genie_paths(flav, obs_key, tune):
-    return _hk_or_dune(obs_key,
-                       GENIE_HK[(flav, tune)],
-                       GENIE_DUNE[(flav, tune)])
+    return _hk_or_dune(obs_key, GENIE_HK[(flav, tune)], GENIE_DUNE[(flav, tune)])
 
 
 def edrmf_paths(flav, obs_key, kind):
@@ -296,16 +250,15 @@ CATEGORIES = [
 
 
 # ---------------------------------------------------------------------------
-# Main: build (category, flavour, observable) rows
+# Cell computation: mean-driven pair selection
 # ---------------------------------------------------------------------------
-def category_row(cat_label, variants, path_fn, flav, obs_key):
-    """Pick the (max_mean, min_mean) variant pair; report median range and
-    mean range for THAT pair. Ensures the two sub-columns refer to the same
-    pair of MC variants, with the pair chosen by the mean."""
+def category_row(variants, path_fn, flav, obs_key, mode):
+    """Pick the (max_mean, min_mean) variant pair; report median and mean
+    range for THAT pair."""
     medians, means = [], []
     for v in variants:
         path = path_fn(flav, obs_key, v)
-        res = get_xw(path, obs_key)
+        res = get_xw(path, obs_key, mode)
         if res is None:
             continue
         x, w = res
@@ -315,43 +268,14 @@ def category_row(cat_label, variants, path_fn, flav, obs_key):
         return None, None
     i_max = int(np.argmax(means))
     i_min = int(np.argmin(means))
-    mean_range = means[i_max] - means[i_min]                # ≥ 0 by construction
+    mean_range = means[i_max] - means[i_min]                # >= 0 by construction
     med_range  = abs(medians[i_max] - medians[i_min])       # same pair as mean
     return med_range, mean_range
 
 
-# Compute all rows
-print("% (loading data; first run may take several minutes)")
-rows = []
-for cat_label, variants, path_fn in CATEGORIES:
-    for flav in ("numu", "numubar"):
-        for obs_key in ("hk_qe", "dune_epi", "dune_tpi"):
-            med, mean = category_row(cat_label, variants, path_fn, flav, obs_key)
-            rows.append((cat_label, flav, obs_key, med, mean))
-
-
 # ---------------------------------------------------------------------------
-# LaTeX output (printed to stdout AND saved to OUT_DIR/variation_table.tex)
+# LaTeX table emission
 # ---------------------------------------------------------------------------
-OUT_DIR = "/eos/home-l/lamuntea/FSI_IOP_paper/run_genie_bw"
-out_path = os.path.join(OUT_DIR, "variation_table.tex")
-os.makedirs(OUT_DIR, exist_ok=True)
-
-# Build all output lines once, write to file, also echo to stdout.
-# Uses booktabs (\toprule, \midrule, \bottomrule) for nicer separators,
-# rotated multirow group cells, and pale-red shading where a range exceeds
-# the per-experiment threshold.
-lines = []
-lines.append(r"% Variation table -- requires:")
-lines.append(r"%   \usepackage{booktabs}")
-lines.append(r"%   \usepackage{multirow}")
-lines.append(r"%   \usepackage[table]{xcolor}")
-lines.append(r"%   \usepackage{graphicx}   % for \rotatebox")
-lines.append(r"%   (siunitx no longer required — plain r columns)")
-lines.append("")
-# Horizontal layout: 2 flavour blocks × 3 observable rows × 5 category columns.
-# Each cell prints the median range (max−min across variants in that category).
-# Pale-red shading when the cell exceeds the per-observable threshold.
 CAT_HEADERS = [
     (r"FSI vs no FSI",                    r"FSI / no FSI"),
     (r"$\pi_{\mathrm{abs}}$ $\pm 31\%$",   r"$\pi_{\mathrm{abs}}$"),
@@ -361,75 +285,102 @@ CAT_HEADERS = [
 ]
 OBS_ORDER = ["hk_qe", "dune_epi", "dune_tpi"]
 
-# Index rows by (cat, flav, obs) for O(1) lookup
-by_key = {(r[0], r[1], r[2]): (r[3], r[4]) for r in rows}
 
-def fmt(v, thresh):
+def fmt(v, thresh, num_fmt):
     if v is None or not np.isfinite(v):
         return "--"
     col = r"\cellcolor{red!12}" if v > thresh else ""
-    return f"{col}{v:.1f}"
+    return f"{col}{num_fmt.format(v)}"
 
-n_cat = len(CAT_HEADERS)
-lines.append(r"\setlength{\tabcolsep}{4pt}")
-lines.append(r"\renewcommand{\arraystretch}{1.15}")
-# Each category has 2 sub-columns (median and mean range). 5 categories → 10
-# data columns total, plus the 2 label columns (flavour + observable).
-# Plain right-aligned columns (no siunitx required).
-col_spec = "@{}c l " + " ".join("r r" for _ in range(n_cat)) + "@{}"
-lines.append(rf"\begin{{tabular}}{{{col_spec}}}")
-lines.append(r"\toprule")
-# Top header row: multicolumn for each category.
-hdr_top = [r"\textbf{Flavour}", r"\textbf{Observable}"]
-for _, h in CAT_HEADERS:
-    hdr_top.append(rf"\multicolumn{{2}}{{c}}{{\textbf{{{h}}}}}")
-lines.append(" & ".join(hdr_top) + r" \\")
-# cmidrule for each category group: columns start at 3 and step by 2.
-cmid_parts = []
-for i in range(n_cat):
-    c1 = 3 + 2 * i
-    c2 = c1 + 1
-    cmid_parts.append(rf"\cmidrule(lr){{{c1}-{c2}}}")
-lines.append("".join(cmid_parts))
-# Sub-header row: median / mean labels.
-hdr_sub = ["", ""]
-for _ in CAT_HEADERS:
-    hdr_sub.extend(["median", "mean"])
-lines.append(" & ".join(hdr_sub) + r" \\")
-# Units row.
-units = ["", ""] + ["[MeV]"] * (2 * n_cat)
-lines.append(" & ".join(units) + r" \\")
-lines.append(r"\midrule")
 
-for flav_idx, flav in enumerate(["numu", "numubar"]):
-    if flav_idx > 0:
-        lines.append(r"\midrule")
-    for obs_idx, obs_key in enumerate(OBS_ORDER):
-        if obs_idx == 0:
-            flav_cell = (rf"\multirow{{{len(OBS_ORDER)}}}{{*}}"
-                         rf"{{\rotatebox[origin=c]{{90}}{{\textbf{{{FLAV_LATEX[flav]}}}}}}}")
-        else:
-            flav_cell = ""
-        obs_cell = OBS_LABELS_LATEX[obs_key]
-        thresh   = THRESH[obs_key]
-        cells = [flav_cell, obs_cell]
-        for cat_label, _ in CAT_HEADERS:
-            # No EDRMF sample exists for antineutrino flavours -> blank cells
-            if cat_label.startswith("EDRMF") and flav == "numubar":
-                cells.extend(["", ""])
-                continue
-            med, mean = by_key.get((cat_label, flav, obs_key), (None, None))
-            cells.append(fmt(med, thresh))
-            cells.append(fmt(mean, thresh))
-        lines.append(" & ".join(cells) + r" \\")
+def emit_table(mode, rows, out_path):
+    """Build the LaTeX table for one bias mode and write it to out_path."""
+    num_fmt = FMT_BY_MODE[mode]
+    units = UNITS_BY_MODE[mode]
+    thresh_by_exp = THRESH_BY_MODE[mode]
 
-lines.append(r"\bottomrule")
-lines.append(r"\end{tabular}")
+    by_key = {(r[0], r[1], r[2]): (r[3], r[4]) for r in rows}
 
-content = "\n".join(lines) + "\n"
-with open(out_path, "w") as f:
-    f.write(content)
+    lines = []
+    lines.append(rf"% Variation table ({mode}) -- requires:")
+    lines.append(r"%   \usepackage{booktabs}")
+    lines.append(r"%   \usepackage{multirow}")
+    lines.append(r"%   \usepackage[table]{xcolor}")
+    lines.append(r"%   \usepackage{graphicx}   % for \rotatebox")
+    lines.append("")
+    n_cat = len(CAT_HEADERS)
+    lines.append(r"\setlength{\tabcolsep}{4pt}")
+    lines.append(r"\renewcommand{\arraystretch}{1.15}")
+    col_spec = "@{}c l " + " ".join("r r" for _ in range(n_cat)) + "@{}"
+    lines.append(rf"\begin{{tabular}}{{{col_spec}}}")
+    lines.append(r"\toprule")
+    hdr_top = [r"\textbf{Flavour}", r"\textbf{Observable}"]
+    for _, h in CAT_HEADERS:
+        hdr_top.append(rf"\multicolumn{{2}}{{c}}{{\textbf{{{h}}}}}")
+    lines.append(" & ".join(hdr_top) + r" \\")
+    cmid_parts = []
+    for i in range(n_cat):
+        c1 = 3 + 2 * i
+        c2 = c1 + 1
+        cmid_parts.append(rf"\cmidrule(lr){{{c1}-{c2}}}")
+    lines.append("".join(cmid_parts))
+    hdr_sub = ["", ""]
+    for _ in CAT_HEADERS:
+        hdr_sub.extend(["median", "mean"])
+    lines.append(" & ".join(hdr_sub) + r" \\")
+    units_row = ["", ""] + [units] * (2 * n_cat)
+    lines.append(" & ".join(units_row) + r" \\")
+    lines.append(r"\midrule")
 
-print()
-print(content)
-print(f"% wrote {out_path}")
+    for flav_idx, flav in enumerate(["numu", "numubar"]):
+        if flav_idx > 0:
+            lines.append(r"\midrule")
+        for obs_idx, obs_key in enumerate(OBS_ORDER):
+            if obs_idx == 0:
+                flav_cell = (rf"\multirow{{{len(OBS_ORDER)}}}{{*}}"
+                             rf"{{\rotatebox[origin=c]{{90}}{{\textbf{{{FLAV_LATEX[flav]}}}}}}}")
+            else:
+                flav_cell = ""
+            obs_cell = OBS_LABELS_LATEX[obs_key]
+            thresh = thresh_by_exp[EXP_BY_OBS[obs_key]]
+            cells = [flav_cell, obs_cell]
+            for cat_label, _ in CAT_HEADERS:
+                if cat_label.startswith("EDRMF") and flav == "numubar":
+                    cells.extend(["", ""])
+                    continue
+                med, mean = by_key.get((cat_label, flav, obs_key), (None, None))
+                cells.append(fmt(med, thresh, num_fmt))
+                cells.append(fmt(mean, thresh, num_fmt))
+            lines.append(" & ".join(cells) + r" \\")
+
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+
+    content = "\n".join(lines) + "\n"
+    with open(out_path, "w") as f:
+        f.write(content)
+    return content
+
+
+# ---------------------------------------------------------------------------
+# Run both modes and emit two .tex files
+# ---------------------------------------------------------------------------
+_root = os.environ.get("OUTPUT_PLOTS_DIR")
+OUT_DIR = (os.path.join(_root, "BW_summaries") if _root
+           else "/eos/home-l/lamuntea/FSI_IOP_paper/run_genie_bw")
+os.makedirs(OUT_DIR, exist_ok=True)
+
+for mode in ("abs", "rel"):
+    print(f"\n##### mode = {mode} #####")
+    print("% (loading data; first run may take several minutes)")
+    rows = []
+    for cat_label, variants, path_fn in CATEGORIES:
+        for flav in ("numu", "numubar"):
+            for obs_key in ("hk_qe", "dune_epi", "dune_tpi"):
+                med, mean = category_row(variants, path_fn, flav, obs_key, mode)
+                rows.append((cat_label, flav, obs_key, med, mean))
+
+    out_path = os.path.join(OUT_DIR, f"variation_table_{mode}.tex")
+    content = emit_table(mode, rows, out_path)
+    print(content)
+    print(f"% wrote {out_path}")

@@ -9,55 +9,35 @@ Z_CMAP = "RdPu"
 Z_VMAX = 0.3
 Z_VMIN = Z_VMAX * 1e-4
 
-def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, xbins, ybins):
+# Per-mode y-axis bin specs. x-axis (Enu_true) stays in MeV in both modes.
+YBIN_SPECS = {
+    "abs": dict(bin_width=20.0,  lo=-1000.0,           hi=1000.0,            ylim=(-900.0, 300.0)),
+    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  ylim=REL_BIAS_XLIM),
+}
+
+
+def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, mode, xbins):
   fig, ax = make_fig('single')
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
-  bias_wo_GeV, bias_with_GeV, valid = enu_had_arr(arr, vertex=False)
-  # convert to MeV for unified axes
-  bias_wo_list   = bias_wo_GeV   * 1000.0
-  bias_with_list = bias_with_GeV * 1000.0
-  Enu_t = np.asarray(arr['Enu_true'])[valid] * 1000.0  # MeV
+  observable = "had" if withPion else "avail"
+  yvals = bias_arr(arr, observable, kind=mode, vertex=False)
+  # Enu_true on the same CC selection.
+  _, _, cc_mask = enu_had_arr(arr, vertex=False)
+  Enu_t = np.asarray(arr['Enu_true'])[np.asarray(cc_mask, dtype=bool)] * 1000.0  # MeV
 
-  if withPion:
-    yvals = bias_with_list
-  else:
-    yvals = bias_wo_list
+  yspec = YBIN_SPECS[mode]
+  ybins = np.arange(yspec["lo"], yspec["hi"] + yspec["bin_width"], step=yspec["bin_width"])
 
   H, xedges, yedges = np.histogram2d(
       Enu_t,
       yvals,
-      bins=[ybins, xbins]
+      bins=[xbins, ybins],
   )
 
-  # Choose normalisation mode
-  norm_mode = "y"
-
-  if norm_mode == "x":
-      # each Enu bin sums to 1
-      denom = H.sum(axis=0, keepdims=True)
-      cbar_label = "Fraction per bias bin"
-
-  elif norm_mode == "y":
-      # each bias bin sums to 1
-      denom = H.sum(axis=1, keepdims=True)
-      cbar_label = r"Fraction per $E_{\nu}^{\text{true}}$ bin"
-
-  elif norm_mode == "total":
-      # whole histogram sums to 1
-      denom = H.sum()
-      cbar_label = "Fraction of all events"
-
-  else:
-      denom = 1
-      cbar_label = "Counts"
-
+  # Normalise so each Enu_true slice sums to 1.
+  denom = H.sum(axis=1, keepdims=True)
   H_plot = np.divide(H, denom, out=np.zeros_like(H), where=denom != 0)
 
-  # Log z-scale, fixed (Z_VMIN, Z_VMAX) so every Fig6 panel uses the same
-  # normalisation. Empty cells get the bottom-of-cmap colour. The colorbar
-  # is NOT drawn here — make_Fig6_colorbar.py produces a standalone
-  # Fig6_colorbar.pdf that serves as the shared z-axis in the LaTeX
-  # subfigure environment.
   import matplotlib as _mpl
   cmap = _mpl.colormaps[Z_CMAP].copy()
   cmap.set_bad(cmap(0.0))
@@ -71,8 +51,7 @@ def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, xbins, ybins):
       norm=LogNorm(vmin=Z_VMIN, vmax=Z_VMAX),
   )
 
-  # Overlay per-Eν_true slice median, mean, and 16-84% band so the energy
-  # dependence of the bias is visible as curves rather than buried in the heatmap.
+  # Overlay per-Enu_true slice median / mean / 16-84% band.
   xcenters = 0.5 * (xedges[:-1] + xedges[1:])
   med, mean, q16, q84 = [], [], [], []
   for ix in range(len(xcenters)):
@@ -85,29 +64,22 @@ def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, xbins, ybins):
       q16.append(np.percentile(s, 16))
       q84.append(np.percentile(s, 84))
   ax.fill_between(xcenters, q16, q84, color="#F5DEB3", alpha=0.30)
-  ax.plot(xcenters, med,  color="#F5DEB3", lw=1.8)        # wheat / golden sand
-  ax.plot(xcenters, mean, color="#E69F00", lw=1.7, ls="--")  # Wong orange — CB-friendly, contrasts with RdPu purple end
-  # Per-plot legend dropped — make_Fig6_legend.py generates a standalone
-  # Fig6_legend.pdf shared across all 4 Fig6 panels in the LaTeX subfigure.
+  ax.plot(xcenters, med,  color="#F5DEB3", lw=1.8)
+  ax.plot(xcenters, mean, color="#E69F00", lw=1.7, ls="--")
 
-  if(withPion==True):
-    ax.set_ylabel(r"$E_\nu^{\rm had} - E_\nu^{\rm true}$ [MeV]")
-  else:
-    ax.set_ylabel(r"$E_\nu^{\rm avail} - E_\nu^{\rm true}$ [MeV]")
-
+  ax.set_ylabel(bias_xlabel(observable, mode))
   ax.set_xlabel(r"$E_\nu^{\rm true}$ [MeV]")
   ax.set_xlim(300, 6000)
-  ax.set_ylim(-900, 300)
-  plt.savefig(f"Fig6_plots/Fig6_DUNE_EnuRecoBias2D_{plot_name}.pdf")
+  ax.set_ylim(*yspec["ylim"])
+  plt.savefig(outpath("Fig6_plots", f"Fig6_DUNE_EnuRecoBias2D_{plot_name}_{mode}.pdf"))
   plt.close(fig)
 
 
 _events = -1
-_xbins = np.arange(-1000, 1000 + 20, 20)   # bias bins (MeV)
-_ybins = np.arange(300, 6000 + 120, 120)   # Enu_true bins, DUNE 300 MeV - 6 GeV, 120 MeV/bin
+_xbins = np.arange(300, 6000 + 120, 120)   # Enu_true bins, DUNE 300 MeV - 6 GeV, 120 MeV/bin
 
-plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root", nEvents=_events, plot_name="FSI_WithoutPion_numu", withPion=False, xbins=_xbins, ybins=_ybins)
-plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithoutPion_numubar", withPion=False, xbins=_xbins, ybins=_ybins)
-
-plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root", nEvents=_events, plot_name="FSI_WithPion_numu", withPion=True, xbins=_xbins, ybins=_ybins)
-plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithPion_numubar", withPion=True, xbins=_xbins, ybins=_ybins)
+for mode in ("abs", "rel"):
+    plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",  nEvents=_events, plot_name="FSI_WithoutPion_numu",    withPion=False, mode=mode, xbins=_xbins)
+    plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithoutPion_numubar", withPion=False, mode=mode, xbins=_xbins)
+    plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",  nEvents=_events, plot_name="FSI_WithPion_numu",       withPion=True,  mode=mode, xbins=_xbins)
+    plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithPion_numubar",    withPion=True,  mode=mode, xbins=_xbins)

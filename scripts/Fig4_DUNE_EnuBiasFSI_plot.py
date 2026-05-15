@@ -1,38 +1,26 @@
 from FlatTreeMod import *
 ROOT.gROOT.SetBatch(True)
 
-def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, nominal=False, counts_nom=None):
-  # noFSI vs FSI line is now selected by the caller passing a noFSI or FSI
-  # file. We always read the post-FSI stack (vertex=False) — vertex stack of
-  # an FSI file would be biased by NuWro binding-energy bookkeeping. For a
-  # noFSI file no cascade ran, so post-FSI == no-FSI. All energies in MeV.
+# Per-mode bin spec for the DUNE FSI-vs-noFSI bias histogram.
+BIN_SPECS = {
+    "abs": dict(bin_width=16.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 300.0)),
+    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
+}
+
+
+def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, mode, nominal=False, counts_nom=None):
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
-  bias_wo_GeV, bias_with_GeV, _ = enu_had_arr(arr, vertex=False)
-  bias_wo_list   = bias_wo_GeV   * 1000.0
-  bias_with_list = bias_with_GeV * 1000.0
+  observable = "had" if withPion else "avail"
+  bias = bias_arr(arr, observable, kind=mode, vertex=False)
   fScaleFactor = float(np.max(arr['fScaleFactor']))
 
-  bin_width = 16.0  # MeV
-  bins = np.arange(-1000, 1000 + bin_width, step=bin_width)
+  spec = BIN_SPECS[mode]
+  bin_width = spec["bin_width"]
+  bins = np.arange(spec["lo"], spec["hi"] + bin_width, step=bin_width)
 
-  weights_with = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias_with_list)
-  weights_wo   = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias_wo_list)
+  weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias)
 
-  # ---------------------------------
-  # Choose which definition to plot
-  # ---------------------------------
-  if(withPion == True):
-    bias = bias_with_list
-    weights = weights_with
-    pion_label = "w/ pion mass"
-  else:
-    bias = bias_wo_list
-    weights = weights_wo
-    pion_label = "w/o pion mass"
-
-  # ---------------------------------
-  # Choose FSI / noFSI (label & colour driven by `nominal`, not `vertex`)
-  # ---------------------------------
+  pion_label = "w/ pion mass" if withPion else "w/o pion mass"
   if nominal:
     color = dark_blue
     label = pion_label + " noFSI"
@@ -40,9 +28,6 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, nominal=False,
     color = dark_red
     label = pion_label + " FSI"
 
-  # ---------------------------------
-  # Main histogram
-  # ---------------------------------
   ax.hist(
       bias,
       bins=bins,
@@ -56,20 +41,15 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, nominal=False,
   custom_lines.append(Line2D([0], [0], color=color, lw=2, linestyle='-'))
   labels.append(label)
 
-  # ---------------------------------
-  # Ratio histogram
-  # ---------------------------------
   counts, edges = np.histogram(bias, weights=weights, bins=bins)
 
-  if nominal == True:
+  if nominal:
       ax_ratio.hlines(1, bins[0], bins[-1], linestyle='--', color='black')
       Print(f"Done: {filename}")
       return counts
-
   else:
       ratio = counts / counts_nom
       ratio = np.nan_to_num(ratio, nan=0.0, posinf=0.0, neginf=0.0)
-
       ax_ratio.step(
         edges,
         np.r_[ratio, ratio[-1]],
@@ -84,50 +64,51 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, nominal=False,
 
 _events = 10000
 
-plot_configs = [
+_PLOT_CONFIGS = [
     {"withPion": True,  "flavor": "numu",
      "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",
      "title": r"$\nu_{\mu}$, w/ pion mass",
-     "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numu.pdf"},
+     "stem": "Fig4_DUNE_EnuRecoFSIBias_WithPion_numu"},
     {"withPion": True,  "flavor": "numubar",
      "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root",
      "title": r"$\bar{\nu}_{\mu}$, w/ pion mass",
-     "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numubar.pdf"},
+     "stem": "Fig4_DUNE_EnuRecoFSIBias_WithPion_numubar"},
     {"withPion": False, "flavor": "numu",
      "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",
      "title": r"$\nu_{\mu}$, w/o pion mass",
-     "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numu.pdf"},
+     "stem": "Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numu"},
     {"withPion": False, "flavor": "numubar",
      "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root",
      "title": r"$\bar{\nu}_{\mu}$, w/o pion mass",
-     "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numubar.pdf"},
+     "stem": "Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numubar"},
 ]
 
-for cfg in plot_configs:
-    custom_lines, labels = [], []
-    fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
-    # noFSI line from the dedicated noFSI sample (sibling of cfg["file"]).
-    counts_nom = plot_Enu_bias_numu(
-        ax=ax, ax_ratio=ax_ratio, filename=noFSI_path(cfg["file"]),
-        nEvents=_events, withPion=cfg["withPion"],
-        nominal=True,
-    )
-    counts_fsi = plot_Enu_bias_numu(
-        ax=ax, ax_ratio=ax_ratio, filename=cfg["file"],
-        nEvents=_events, withPion=cfg["withPion"],
-        nominal=False, counts_nom=counts_nom,
-    )
+for mode in ("abs", "rel"):
+    for cfg in _PLOT_CONFIGS:
+        custom_lines, labels = [], []
+        fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
+        counts_nom = plot_Enu_bias_numu(
+            ax=ax, ax_ratio=ax_ratio, filename=noFSI_path(cfg["file"]),
+            nEvents=_events, withPion=cfg["withPion"], mode=mode,
+            nominal=True,
+        )
+        counts_fsi = plot_Enu_bias_numu(
+            ax=ax, ax_ratio=ax_ratio, filename=cfg["file"],
+            nEvents=_events, withPion=cfg["withPion"], mode=mode,
+            nominal=False, counts_nom=counts_nom,
+        )
 
-    ax.legend(custom_lines, labels, loc='best')
-    ax.set_xlim(-900, 300)
-    peak = max(float(counts_nom.max()), float(counts_fsi.max()))
-    ax.set_ylim(0, peak * 1.15)
-    ax.set_ylabel(DSIGMA_DE_LABEL)
+        spec = BIN_SPECS[mode]
+        ax.legend(custom_lines, labels, loc='best')
+        ax.set_xlim(*spec["xlim"])
+        peak = max(float(counts_nom.max()), float(counts_fsi.max()))
+        ax.set_ylim(0, peak * 1.15)
+        ax.set_ylabel(bias_ylabel(mode))
 
-    ax_ratio.set_xlabel(r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]")
-    ax_ratio.set_ylabel("FSI/noFSI")
-    ax_ratio.set_xlim(-900, 300)
-    # y-range left to matplotlib auto-scale
+        observable = "had" if cfg["withPion"] else "avail"
+        ax_ratio.set_xlabel(bias_xlabel(observable, mode))
+        ax_ratio.set_ylabel("FSI/noFSI")
+        ax_ratio.set_xlim(*spec["xlim"])
 
-    plt.savefig(cfg["outfile"])
-    plt.close(fig)
+        plt.savefig(outpath("Fig4_plots", f"{cfg['stem']}_{mode}.pdf"))
+        plt.close(fig)

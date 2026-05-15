@@ -20,7 +20,7 @@ sys.path.insert(0, _HERE)
 import FlatTreeMod  # noqa: F401  -- side effect: rcParams
 from Fig6_DUNE_EnuBias_2D_plot import Z_CMAP, Z_VMAX, Z_VMIN
 
-OUT_DIR = os.path.join(_HERE, "Fig6_plots")
+OUT_DIR = os.path.join(os.environ.get("OUTPUT_PLOTS_DIR", _HERE), "Fig6_plots")
 LABEL = r"Fraction per $E_{\nu}^{\rm true}$ bin"
 
 

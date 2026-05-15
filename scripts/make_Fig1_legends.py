@@ -18,7 +18,11 @@ from FlatTreeMod import (
 )
 from matplotlib.lines import Line2D
 
-OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Fig1_plots")
+OUT_DIR = os.path.join(
+    os.environ.get("OUTPUT_PLOTS_DIR",
+                   os.path.dirname(os.path.abspath(__file__))),
+    "Fig1_plots",
+)
 
 
 def line(color, label, ls='-', lw=1.6):
