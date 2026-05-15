@@ -36,7 +36,7 @@ from FlatTreeMod import load_arrays  # noqa: E402
 # ---------------------------------------------------------------------------
 # Configuration (kept in sync with fsi_iop_plots.py)
 # ---------------------------------------------------------------------------
-BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031"
+BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031_morestats"
 NEUT_BASE = "/eos/home-l/lamuntea/FSI_IOP_paper/neut_runs"
 GENIE_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"  # existing GENIE NUISFLAT samples — separate from NuWro BASE
 MAX_EVENTS = None
@@ -100,17 +100,18 @@ GENIE_DUNE.update({
     ("numubar", t): f"{GENIE_FILES_BASE}/DUNE/GENIE/DUNEFD_unosc_RHC_numubar_Ar40_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
     for t in ("10a", "10b", "10c", "10d")
 })
+_NEUT_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"
 NEUT_EDRMF = {
-    ("numu",    "hk"):   f"{NEUT_BASE}/HK_numu_H2O_EDRMF/EDRMF.flat.root",
-    ("numubar", "hk"):   f"{NEUT_BASE}/HK_numubar_H2O_EDRMF/EDRMF.flat.root",
-    ("numu",    "dune"): f"{NEUT_BASE}/DUNE_numu_Ar40_EDRMF/EDRMF.flat.root",
-    ("numubar", "dune"): f"{NEUT_BASE}/DUNE_numubar_Ar40_EDRMF/EDRMF.flat.root",
+    ("numu",    "hk"):   f"{_NEUT_FILES_BASE}/HK/NEUT_HK_EDRMF_numu.flat.root",
+    ("numubar", "hk"):   None,  # no antineutrino EDRMF sample
+    ("numu",    "dune"): f"{_NEUT_FILES_BASE}/DUNE/DUNE_EDRMF_numu.root",
+    ("numubar", "dune"): None,
 }
 NEUT_RPWIA = {
-    ("numu",    "hk"):   f"{NEUT_BASE}/HK_numu_H2O_RPWIA/RPWIA.flat.root",
-    ("numubar", "hk"):   f"{NEUT_BASE}/HK_numubar_H2O_RPWIA/RPWIA.flat.root",
-    ("numu",    "dune"): f"{NEUT_BASE}/DUNE_numu_Ar40_RPWIA/RPWIA.flat.root",
-    ("numubar", "dune"): f"{NEUT_BASE}/DUNE_numubar_Ar40_RPWIA/RPWIA.flat.root",
+    ("numu",    "hk"):   f"{_NEUT_FILES_BASE}/HK/NEUT_HK_RPWIA_numu.flat.root",
+    ("numubar", "hk"):   None,
+    ("numu",    "dune"): f"{_NEUT_FILES_BASE}/DUNE/DUNE_RPWIA_numu.root",
+    ("numubar", "dune"): None,
 }
 
 OBS_LABELS_LATEX = {
@@ -298,6 +299,9 @@ CATEGORIES = [
 # Main: build (category, flavour, observable) rows
 # ---------------------------------------------------------------------------
 def category_row(cat_label, variants, path_fn, flav, obs_key):
+    """Pick the (max_mean, min_mean) variant pair; report median range and
+    mean range for THAT pair. Ensures the two sub-columns refer to the same
+    pair of MC variants, with the pair chosen by the mean."""
     medians, means = [], []
     for v in variants:
         path = path_fn(flav, obs_key, v)
@@ -309,8 +313,10 @@ def category_row(cat_label, variants, path_fn, flav, obs_key):
         means.append(weighted_mean(x, w))
     if len(medians) < 2:
         return None, None
-    med_range = max(medians) - min(medians)
-    mean_range = max(means) - min(means)
+    i_max = int(np.argmax(means))
+    i_min = int(np.argmin(means))
+    mean_range = means[i_max] - means[i_min]                # ≥ 0 by construction
+    med_range  = abs(medians[i_max] - medians[i_min])       # same pair as mean
     return med_range, mean_range
 
 
@@ -341,48 +347,81 @@ lines.append(r"%   \usepackage{booktabs}")
 lines.append(r"%   \usepackage{multirow}")
 lines.append(r"%   \usepackage[table]{xcolor}")
 lines.append(r"%   \usepackage{graphicx}   % for \rotatebox")
-lines.append(r"%   \usepackage{siunitx}    % optional, for unit alignment")
+lines.append(r"%   (siunitx no longer required — plain r columns)")
 lines.append("")
-lines.append(r"\setlength{\tabcolsep}{6pt}")
+# Horizontal layout: 2 flavour blocks × 3 observable rows × 5 category columns.
+# Each cell prints the median range (max−min across variants in that category).
+# Pale-red shading when the cell exceeds the per-observable threshold.
+CAT_HEADERS = [
+    (r"FSI vs no FSI",                    r"FSI / no FSI"),
+    (r"$\pi_{\mathrm{abs}}$ $\pm 31\%$",   r"$\pi_{\mathrm{abs}}$"),
+    (r"NN MFP $\pm 30\%$",                 r"NN MFP"),
+    (r"GENIE cascade (10a-10d)",           r"FSI model"),
+    (r"EDRMF vs RPWIA",                    r"EDRMF"),
+]
+OBS_ORDER = ["hk_qe", "dune_epi", "dune_tpi"]
+
+# Index rows by (cat, flav, obs) for O(1) lookup
+by_key = {(r[0], r[1], r[2]): (r[3], r[4]) for r in rows}
+
+def fmt(v, thresh):
+    if v is None or not np.isfinite(v):
+        return "--"
+    col = r"\cellcolor{red!12}" if v > thresh else ""
+    return f"{col}{v:.1f}"
+
+n_cat = len(CAT_HEADERS)
+lines.append(r"\setlength{\tabcolsep}{4pt}")
 lines.append(r"\renewcommand{\arraystretch}{1.15}")
-lines.append(r"\begin{tabular}{@{}c c l S[table-format=3.1] S[table-format=3.1]@{}}")
+# Each category has 2 sub-columns (median and mean range). 5 categories → 10
+# data columns total, plus the 2 label columns (flavour + observable).
+# Plain right-aligned columns (no siunitx required).
+col_spec = "@{}c l " + " ".join("r r" for _ in range(n_cat)) + "@{}"
+lines.append(rf"\begin{{tabular}}{{{col_spec}}}")
 lines.append(r"\toprule")
-lines.append(r"\textbf{Group} & \textbf{Flavour} & \textbf{Observable} & "
-             r"{\textbf{median range}} & {\textbf{mean range}} \\")
-lines.append(r"               &                  &                     & "
-             r"{[MeV]}              & {[MeV]}             \\")
+# Top header row: multicolumn for each category.
+hdr_top = [r"\textbf{Flavour}", r"\textbf{Observable}"]
+for _, h in CAT_HEADERS:
+    hdr_top.append(rf"\multicolumn{{2}}{{c}}{{\textbf{{{h}}}}}")
+lines.append(" & ".join(hdr_top) + r" \\")
+# cmidrule for each category group: columns start at 3 and step by 2.
+cmid_parts = []
+for i in range(n_cat):
+    c1 = 3 + 2 * i
+    c2 = c1 + 1
+    cmid_parts.append(rf"\cmidrule(lr){{{c1}-{c2}}}")
+lines.append("".join(cmid_parts))
+# Sub-header row: median / mean labels.
+hdr_sub = ["", ""]
+for _ in CAT_HEADERS:
+    hdr_sub.extend(["median", "mean"])
+lines.append(" & ".join(hdr_sub) + r" \\")
+# Units row.
+units = ["", ""] + ["[MeV]"] * (2 * n_cat)
+lines.append(" & ".join(units) + r" \\")
 lines.append(r"\midrule")
 
-cat_counts = {}
-for r in rows:
-    cat_counts[r[0]] = cat_counts.get(r[0], 0) + 1
-
-last_cat = None
-n_so_far = 0
-for cat_label, flav, obs_key, med, mean in rows:
-    is_last_in_cat = False
-    n_so_far += 1
-    if cat_label != last_cat:
-        if last_cat is not None:
-            lines.append(r"\midrule")
-        last_cat = cat_label
-        cat_cell = (rf"\multirow{{{cat_counts[cat_label]}}}{{*}}"
-                    rf"{{\rotatebox[origin=c]{{90}}{{\textbf{{{cat_label}}}}}}}")
-    else:
-        cat_cell = ""
-
-    flav_cell = FLAV_LATEX[flav]
-    obs_cell  = OBS_LABELS_LATEX[obs_key]
-    thresh    = THRESH[obs_key]
-
-    def fmt(v):
-        # siunitx S column needs raw numbers; cellcolor still works.
-        if v is None or not np.isfinite(v):
-            return "{--}"
-        col = r"\cellcolor{red!12}" if v > thresh else ""
-        return f"{col}{v:.1f}"
-
-    lines.append(rf"{cat_cell} & {flav_cell} & {obs_cell} & {fmt(med)} & {fmt(mean)} \\")
+for flav_idx, flav in enumerate(["numu", "numubar"]):
+    if flav_idx > 0:
+        lines.append(r"\midrule")
+    for obs_idx, obs_key in enumerate(OBS_ORDER):
+        if obs_idx == 0:
+            flav_cell = (rf"\multirow{{{len(OBS_ORDER)}}}{{*}}"
+                         rf"{{\rotatebox[origin=c]{{90}}{{\textbf{{{FLAV_LATEX[flav]}}}}}}}")
+        else:
+            flav_cell = ""
+        obs_cell = OBS_LABELS_LATEX[obs_key]
+        thresh   = THRESH[obs_key]
+        cells = [flav_cell, obs_cell]
+        for cat_label, _ in CAT_HEADERS:
+            # No EDRMF sample exists for antineutrino flavours -> blank cells
+            if cat_label.startswith("EDRMF") and flav == "numubar":
+                cells.extend(["", ""])
+                continue
+            med, mean = by_key.get((cat_label, flav, obs_key), (None, None))
+            cells.append(fmt(med, thresh))
+            cells.append(fmt(mean, thresh))
+        lines.append(" & ".join(cells) + r" \\")
 
 lines.append(r"\bottomrule")
 lines.append(r"\end{tabular}")

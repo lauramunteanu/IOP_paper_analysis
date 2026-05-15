@@ -57,7 +57,7 @@ plt.rcParams.update({
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031"
+BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031_morestats"
 NEUT_BASE = "/eos/home-l/lamuntea/FSI_IOP_paper/neut_runs"
 NEUT_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"  # NEUT EDRMF/RPWIA samples — separate from NuWro BASE
 GENIE_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"  # existing GENIE NUISFLAT samples — separate from NuWro BASE
@@ -66,7 +66,7 @@ MAX_EVENTS = None  # full stats (cache hit after first run)
 
 OUTER_ALPHA = 0.35
 
-XMIN_FIXED, XMAX_FIXED = -1000.0, 1000.0  # visible x-axis [MeV]
+XMIN_FIXED, XMAX_FIXED = -900.0, 300.0  # visible x-axis [MeV]
 HK_NBINS, HK_HIST_RANGE   = 200, (-1000.0, 1000.0)   # 10 MeV bins, [-1, +1] GeV
 DUNE_NBINS, DUNE_HIST_RANGE = 400, (-3000.0, 1000.0) # 10 MeV bins, [-3, +1] GeV
 HIST_FILL_ALPHA = 0.22    # translucent histogram silhouette
@@ -92,6 +92,10 @@ COL_ORANGE = "#E69F00"
 
 CASCADE_COLORS = {"10a": COL_BLUE, "10b": COL_VERMILION,
                   "10c": COL_GREEN, "10d": COL_PURPLE}
+# Human-readable model names for the GENIE G18 tunes used in cascade
+# comparison plots. Used in legends and BW variant labels.
+GENIE_LABELS = {"10a": "hA2018", "10b": "hN2018",
+                "10c": "INCL++", "10d": "G4BC"}
 
 # ---------------------------------------------------------------------------
 # Path resolver: live files only. Returns None if the file is missing
@@ -335,10 +339,18 @@ def draw_hybrid_hist(ax, y, half, x, w, color,
             markeredgecolor=color, markeredgewidth=1.4, zorder=6)
 
 
-def setup_axes(ax, n_groups, xlabel, xmin, xmax, group_labels, group_centers):
+def setup_axes(ax, n_groups, xlabel, xmin, xmax, group_labels, group_centers,
+               show_ylabels=True):
     ax.set_xlim(xmin, xmax)
     ax.set_yticks(group_centers)
-    ax.set_yticklabels(group_labels)
+    if show_ylabels:
+        ax.set_yticklabels(group_labels)
+    else:
+        # Strip the labels entirely. Left margin is reserved by an explicit
+        # subplots_adjust call in _make_figure (NOT constrained_layout) so
+        # the plot area still aligns with the numu figure when placed
+        # side-by-side in LaTeX.
+        ax.set_yticklabels([])
     ax.axvline(0, color="gray", ls="--", lw=0.7)
     ax.set_xlabel(xlabel)
 
@@ -449,23 +461,27 @@ def _make_figure(fname_stem, flavour, variants, group_label_suffix=""):
     """variants: list of dicts with keys
         label (str),  color (hex),  paths (dict obs_key -> file_path)
     Each row in a group is one variant. Skips a variant in a row if the
-    corresponding file unresolvable."""
+    corresponding file unresolvable.
+
+    numu plots include the y-axis labels (HK Eν^QE / DUNE Eν^avail / DUNE
+    Eν^had). numubar plots suppress them — the LaTeX figure environments
+    place the numubar to the right of the numu so the shared y-axis
+    labels apply to both. Both flavours use the same canvas dimensions
+    (4.0" × ...) so heights remain matched in LaTeX."""
     obs_keys = [k for k, _ in OBS_GROUPS]
     n_groups = len(obs_keys)
     rows_per_group = len(variants)
-    # Tighter packing for the 3.5"-wide canvas: rows at 0.30 axis units,
-    # inter-group gap 0.30 (was 0.45 / 0.60 — those produced a very tall,
-    # vertically-squeezed look at the new 3.5" width).
     sub_pitch = 0.30
     group_pitch = rows_per_group * sub_pitch + 0.30
     half = sub_pitch / 2 * 0.85
-    # Each BW fig is sized to *one half* of \textwidth (3.5") so a two-up
-    # numu+numubar subfigure tiles to the full text width with NO LaTeX
-    # downscaling — text prints at its rcParams pt size on the page.
-    # layout='constrained' lets matplotlib pack the labels inside the canvas
-    # so the saved PDF is exactly figsize (no per-fig bbox-tight cropping).
-    fig, ax = plt.subplots(figsize=(3.5, group_pitch * n_groups + 1.6),
-                           layout='constrained')
+    show_ylabels = (flavour == "numu")
+    # Canvas: 4.0" wide. Use explicit subplots_adjust (not constrained_layout)
+    # so that the plot-area position is FIXED regardless of whether the
+    # y-tick labels are present (numu) or absent (numubar). This guarantees
+    # the data plot areas align pixel-for-pixel between the paired
+    # numu/numubar PDFs in LaTeX.
+    fig, ax = plt.subplots(figsize=(4.0, group_pitch * n_groups + 1.6))
+    fig.subplots_adjust(left=0.22, right=0.97, top=0.97, bottom=0.13)
 
     group_centers = []
     for gi, ok in enumerate(obs_keys):
@@ -489,7 +505,8 @@ def _make_figure(fname_stem, flavour, variants, group_label_suffix=""):
 
     ylabels = [OBS_LABELS[ok] + group_label_suffix for ok in obs_keys]
     setup_axes(ax, n_groups, r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]",
-               XMIN_FIXED, XMAX_FIXED, ylabels, group_centers)
+               XMIN_FIXED, XMAX_FIXED, ylabels, group_centers,
+               show_ylabels=show_ylabels)
 
     out = f"{fname_stem}_{flavour}"
     # No bbox_inches="tight" — keep canvas exactly figsize so numu/numubar
@@ -576,7 +593,7 @@ def make_mfp_compare_figure(flavour):
 def make_cascade_compare_figure(flavour):
     tunes = ["10a", "10b", "10c", "10d"]
     variants = [
-        {"label": f"G18\\_{t}", "color": CASCADE_COLORS[t], "paths": {
+        {"label": GENIE_LABELS[t], "color": CASCADE_COLORS[t], "paths": {
             "hk_qe":    GENIE_HK[(flavour, t)],
             "dune_epi": GENIE_DUNE[(flavour, t)],
             "dune_tpi": GENIE_DUNE[(flavour, t)],
@@ -617,11 +634,10 @@ def colour_swatch(color, label, alpha=HIST_FILL_ALPHA + 0.10):
 
 
 quantity_handles_hybrid = [
-    colour_swatch("#777777", "histogram (per-row colour)"),
     Rectangle((0, 0), 1, 1, fill=False, edgecolor="black", linewidth=BOX_LW,
-              label=r"$1\sigma$ box (16-84)"),
+              label=r"$1\sigma$ range (16-84\%)"),
     Line2D([0], [0], color="black", lw=1.0, alpha=WHISKER_ALPHA,
-           label=r"90\% whiskers (5-95)"),
+           label=r"90\% range (5-95\%)"),
     Line2D([0], [0], marker="o", linestyle="", markersize=10,
            markerfacecolor="white", markeredgecolor="black",
            markeredgewidth=1.4, label="median"),
@@ -630,40 +646,46 @@ quantity_handles_hybrid = [
            markeredgewidth=1.4, label="mean"),
 ]
 
+
 def _save_all_legends():
-    """One shared metrics strip + one colour strip per BW set. Each is a
-    thin framed horizontal legend, no title — meant to be dropped into
-    LaTeX with \\includegraphics[width=\\linewidth]{...} so it spans
-    the side-by-side numu/numubar pair above it."""
-    # All legend strips are sized to span a side-by-side numu+numubar BW
-    # pair: each BW fig is 3.5" so the pair is 7" wide = IOP \textwidth.
-    BW_PAIR_WIDTH = 7.0
-    save_strip_legend(quantity_handles_hybrid, "legend_metrics", fig_w=BW_PAIR_WIDTH)
-    save_strip_legend(
+    """One combined legend per BW set — row 1 = metric markers (1σ range,
+    90% range, median, mean), row 2 = variant colour key. No frame, both
+    rows centered horizontally. Designed to drop above the side-by-side
+    numu/numubar BW pair in LaTeX with width=\\linewidth.
+    Pair canvas (numu 4" + numubar 4" = 8") shrinks to \\linewidth in
+    LaTeX, so the legend canvas is also 8" so it tiles cleanly."""
+    from FlatTreeMod import save_bw_legend
+    BW_PAIR_WIDTH = 8.0
+    save_bw_legend(
+        quantity_handles_hybrid,
         [colour_swatch(COL_GREY,      "with FSI"),
          colour_swatch(COL_VERMILION, "no FSI")],
-        "legend_Fig8_FSIvsNoFSI", fig_w=BW_PAIR_WIDTH,
+        OUT_DIR, "legend_Fig8_FSIvsNoFSI", fig_w=BW_PAIR_WIDTH,
     )
-    save_strip_legend(
+    save_bw_legend(
+        quantity_handles_hybrid,
         [colour_swatch(COL_VERMILION, r"$\pi_{\rm abs}$ $+31\%$"),
          colour_swatch(COL_GREY,      "nominal"),
          colour_swatch(COL_BLUE,      r"$\pi_{\rm abs}$ $-31\%$")],
-        "legend_Fig9_PiAbs", fig_w=BW_PAIR_WIDTH,
+        OUT_DIR, "legend_Fig9_PiAbs", fig_w=BW_PAIR_WIDTH,
     )
-    save_strip_legend(
+    save_bw_legend(
+        quantity_handles_hybrid,
         [colour_swatch(COL_VERMILION, r"$0.7\times$ NN MFP"),
          colour_swatch(COL_GREY,      "nominal"),
          colour_swatch(COL_BLUE,      r"$1.3\times$ NN MFP")],
-        "legend_Fig10_MFP", fig_w=BW_PAIR_WIDTH,
+        OUT_DIR, "legend_Fig10_MFP", fig_w=BW_PAIR_WIDTH,
     )
-    save_strip_legend(
-        [colour_swatch(c, f"GENIE G18\\_{t}") for t, c in CASCADE_COLORS.items()],
-        "legend_Fig11_GENIE", fig_w=BW_PAIR_WIDTH,
+    save_bw_legend(
+        quantity_handles_hybrid,
+        [colour_swatch(c, GENIE_LABELS[t]) for t, c in CASCADE_COLORS.items()],
+        OUT_DIR, "legend_Fig11_GENIE", fig_w=BW_PAIR_WIDTH,
     )
-    save_strip_legend(
+    save_bw_legend(
+        quantity_handles_hybrid,
         [colour_swatch(COL_GREY,   "EDRMF"),
          colour_swatch(COL_ORANGE, "RPWIA")],
-        "legend_Fig12_EDRMF", fig_w=BW_PAIR_WIDTH,
+        OUT_DIR, "legend_Fig12_EDRMF", fig_w=BW_PAIR_WIDTH,
     )
 
 
@@ -711,7 +733,7 @@ def variants_mfp(flav):
 
 def variants_genie(flav):
     return [
-        (f"G18_{t}", CASCADE_COLORS[t], lambda obs, _t=t: _hk_or_dune(
+        (GENIE_LABELS[t], CASCADE_COLORS[t], lambda obs, _t=t: _hk_or_dune(
             obs, GENIE_HK[(flav, _t)], GENIE_DUNE[(flav, _t)]))
         for t in ("10a", "10b", "10c", "10d")
     ]
