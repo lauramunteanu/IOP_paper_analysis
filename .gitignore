@@ -17,3 +17,24 @@ texput.log
 # Stats_table.txt is regenerated on every Fig_HK_BoxWhisker run (truncate mode);
 # don't track its content.
 scripts/Stats_table.txt
+
+# Figure outputs — produced by Fig*_plot.py scripts.
+# Bulk-regen target is /eos/home-l/lamuntea/FSI_IOP_paper/iop_plots/ outside the repo.
+scripts/Fig1_plots/
+scripts/Fig2_plots/
+scripts/Fig3_plots/
+scripts/Fig4_plots/
+scripts/Fig5_plots/
+scripts/Fig6_plots/
+scripts/Fig7_plots/
+scripts/BW_plots/
+
+# Reference plot in checks/ — keep the script, drop the rendered artefact.
+checks/Osc_Prob_plot.pdf
+
+# laura_extras oscillation comparison renders.
+scripts/laura_extras/osc_compare_*.pdf
+scripts/laura_extras/osc_compare_*.png
+
+# Other one-off figure outputs.
+scripts/Fig1_taylor_vs_explicit.png
