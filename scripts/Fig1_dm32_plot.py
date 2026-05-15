@@ -87,24 +87,23 @@ def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
     # ----------------------------------------
     target = expected_events(filename, channel='numu')
     sum_prob = float(prob_default_numu.sum())
-    scale = target / sum_prob / bin_width
+    scale = target / sum_prob
     prob_default_numu = prob_default_numu * scale
     prob_plus_dm2     = prob_plus_dm2     * scale
     prob_minus_dm2    = prob_minus_dm2    * scale
 
     if(IsReco == True):
-        counts_nom = plot_osc_reco(ax, ax_ratio, Enu_QE_sel, "default PMNS", vivid_purple, prob_default_numu, True, counts_nom)
-        plot_osc_reco(ax, ax_ratio, Enu_QE_sel, "Inc dm32", light_green, prob_plus_dm2, False, counts_nom)
-        plot_osc_reco(ax, ax_ratio, Enu_QE_sel, "Dec dm32", dark_green, prob_minus_dm2, False, counts_nom)
-        plot_osc_shift_e(ax, ax_ratio, shift=+5, label="+5 MeV shift",
-                         color=dark_blue, counts_nom=counts_nom, bins=bins,
+        counts_nom = plot_osc_reco(ax, ax_ratio, Enu_QE_sel, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$", tol_dark, prob_default_numu, True, counts_nom)
+        plot_osc_reco(ax, ax_ratio, Enu_QE_sel, r"$\Delta m^{2}_{32} + 0.4\%$", osc_inc_color, prob_plus_dm2, False, counts_nom)
+        plot_osc_reco(ax, ax_ratio, Enu_QE_sel, r"$\Delta m^{2}_{32} - 0.4\%$", osc_dec_color, prob_minus_dm2, False, counts_nom)
+        plot_osc_shift_e(ax, ax_ratio, shift=+5, label=r"$E_{\nu}^{\rm QE} + 5$ MeV",
+                         color=pastel_red, counts_nom=counts_nom, bins=bins,
                          x_unshifted=Enu_QE_sel, weights=prob_default_numu)
-        plot_osc_shift_e(ax, ax_ratio, shift=-5, label="-5 MeV shift",
-                         color=dark_red,  counts_nom=counts_nom, bins=bins,
+        plot_osc_shift_e(ax, ax_ratio, shift=-5, label=r"$E_{\nu}^{\rm QE} - 5$ MeV",
+                         color=pastel_blue, counts_nom=counts_nom, bins=bins,
                          x_unshifted=Enu_QE_sel, weights=prob_default_numu)
 
-        ax.legend(custom_lines, labels, loc = 'upper right')
-        ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{QE}}}$ [MeV]")
+        ax_ratio.set_xlabel(r"$E_{\nu}^{\rm QE}$ [MeV]")
         ax.set_ylabel(EVENT_RATE_LABEL)
 
         ax.set_xlim(0,1200)
@@ -114,12 +113,11 @@ def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
         plt.close(fig)
 
     else:
-        counts_nom = plot_osc_true(ax, ax_ratio, Enu_t_sel, "default PMNS", vivid_purple, prob_default_numu, True, counts_nom)
-        plot_osc_true(ax, ax_ratio, Enu_t_sel, "Inc dm32", light_green, prob_plus_dm2, False, counts_nom)
-        plot_osc_true(ax, ax_ratio, Enu_t_sel, "Dec dm32", dark_green, prob_minus_dm2, False, counts_nom)
+        counts_nom = plot_osc_true(ax, ax_ratio, Enu_t_sel, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$", tol_dark, prob_default_numu, True, counts_nom)
+        plot_osc_true(ax, ax_ratio, Enu_t_sel, r"$\Delta m^{2}_{32} + 0.4\%$", osc_inc_color, prob_plus_dm2, False, counts_nom)
+        plot_osc_true(ax, ax_ratio, Enu_t_sel, r"$\Delta m^{2}_{32} - 0.4\%$", osc_dec_color, prob_minus_dm2, False, counts_nom)
 
-        ax.legend(custom_lines, labels, loc = 'upper right')
-        ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{True}}}$ [MeV]")
+        ax_ratio.set_xlabel(r"$E_{\nu}^{\rm True}$ [MeV]")
         ax.set_ylabel(EVENT_RATE_LABEL)
         ax.set_xlim(0,1200)
         ax_ratio.set_xlim(0,1200)
@@ -130,8 +128,8 @@ def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
 
 
 
-plot_EnuReco("../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root", nEvents = 1000000, IsReco = False)
-plot_EnuReco("../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root", nEvents = 1000000, IsReco = True)
+plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root", nEvents = 1000000, IsReco = False)
+plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root", nEvents = 1000000, IsReco = True)
 
 
 

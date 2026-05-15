@@ -42,7 +42,7 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)
 
-    filename = "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root"
+    filename = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root"
     arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
     # enu_had_arr returns bias = enuhad - Enu_true (GeV); this script wants raw
     # enuhad. Add Enu_true back in and convert everything to MeV.
@@ -87,20 +87,19 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
         if(IsdCP == True):
             # Scale to expected DUNE νe yield (νμ→νe channel).
             target = expected_events(filename, channel='nue')
-            scale = target / float(prob_default_nue.sum()) / bin_width
+            scale = target / float(prob_default_nue.sum())
             prob_default_nue = prob_default_nue * scale
             prob_plus_dcp    = prob_plus_dcp    * scale
             prob_minus_dcp   = prob_minus_dcp   * scale
-            counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, "default PMNS", vivid_purple, prob_default_nue, True, counts_nom)
-            plot_osc_reco(ax, ax_ratio, bias_with_list, "Inc dCP", light_green, prob_plus_dcp, False, counts_nom)
-            plot_osc_reco(ax, ax_ratio, bias_with_list, "Dec dCP", dark_green, prob_minus_dcp, False, counts_nom)
-            plot_osc_shift_e(ax, ax_ratio, shift=+15.0, label="default PMNS, +15MeV shift",
-                             color=dark_blue, counts_nom=counts_nom, bins=bins,
+            counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, r"Nominal $\delta_{CP} = -\pi/2$", tol_dark, prob_default_nue, True, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list, r"$\delta_{CP} + 20^{\circ}$", osc_inc_color, prob_plus_dcp, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list, r"$\delta_{CP} - 20^{\circ}$", osc_dec_color, prob_minus_dcp, False, counts_nom)
+            plot_osc_shift_e(ax, ax_ratio, shift=+15.0, label=r"$E_{\nu}^{\rm had} + 15$ MeV",
+                             color=pastel_red, counts_nom=counts_nom, bins=bins,
                              x_unshifted=bias_with_list, weights=prob_default_nue)
-            plot_osc_shift_e(ax, ax_ratio, shift=-15.0, label="default PMNS, -15MeV shift",
-                             color=dark_red,  counts_nom=counts_nom, bins=bins,
+            plot_osc_shift_e(ax, ax_ratio, shift=-15.0, label=r"$E_{\nu}^{\rm had} - 15$ MeV",
+                             color=pastel_blue, counts_nom=counts_nom, bins=bins,
                              x_unshifted=bias_with_list, weights=prob_default_nue)
-            ax.legend(loc='upper right')
             ax.set_xlim(0, 6000); ax_ratio.set_xlim(0, 6000)
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm had}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
@@ -110,20 +109,19 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
         else:
             # Scale to expected DUNE νμ→νμ survival yield.
             target = expected_events(filename, channel='numu')
-            scale = target / float(prob_default_numu.sum()) / bin_width
+            scale = target / float(prob_default_numu.sum())
             prob_default_numu = prob_default_numu * scale
             prob_plus_dm2     = prob_plus_dm2     * scale
             prob_minus_dm2    = prob_minus_dm2    * scale
-            counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, "default PMNS", vivid_purple, prob_default_numu, True, counts_nom)
-            plot_osc_reco(ax, ax_ratio, bias_with_list, "Inc dm32", light_green, prob_plus_dm2, False, counts_nom)
-            plot_osc_reco(ax, ax_ratio, bias_with_list, "Dec dm32", dark_green, prob_minus_dm2, False, counts_nom)
-            plot_osc_shift_e(ax, ax_ratio, shift=+15.0, label="default PMNS, +15MeV shift",
-                             color=dark_blue, counts_nom=counts_nom, bins=bins,
+            counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$", tol_dark, prob_default_numu, True, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list, r"$\Delta m^{2}_{32} + 0.4\%$", osc_inc_color, prob_plus_dm2, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, bias_with_list, r"$\Delta m^{2}_{32} - 0.4\%$", osc_dec_color, prob_minus_dm2, False, counts_nom)
+            plot_osc_shift_e(ax, ax_ratio, shift=+15.0, label=r"$E_{\nu}^{\rm had} + 15$ MeV",
+                             color=pastel_red, counts_nom=counts_nom, bins=bins,
                              x_unshifted=bias_with_list, weights=prob_default_numu)
-            plot_osc_shift_e(ax, ax_ratio, shift=-15.0, label="default PMNS, -15MeV shift",
-                             color=dark_red,  counts_nom=counts_nom, bins=bins,
+            plot_osc_shift_e(ax, ax_ratio, shift=-15.0, label=r"$E_{\nu}^{\rm had} - 15$ MeV",
+                             color=pastel_blue, counts_nom=counts_nom, bins=bins,
                              x_unshifted=bias_with_list, weights=prob_default_numu)
-            ax.legend(loc='upper right')
             ax.set_xlim(0, 6000); ax_ratio.set_xlim(0, 6000)
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm had}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
@@ -131,23 +129,21 @@ def plot_EnuReco(nEvents: int, IsReco: bool, IsdCP: bool):
             plt.savefig("Fig1_plots/Fig1_DUNE_Enuhad_dm32.pdf")
     else:
         if(IsdCP == True):
-            counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, "default PMNS", vivid_purple, prob_default_nue, True, counts_nom)
-            plot_osc_reco(ax, ax_ratio, Enu_t_sel, "Inc dCP", light_green, prob_plus_dcp, False, counts_nom)
-            plot_osc_reco(ax, ax_ratio, Enu_t_sel, "Dec dCP", dark_green, prob_minus_dcp, False, counts_nom)
+            counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"Nominal $\delta_{CP} = -\pi/2$", tol_dark, prob_default_nue, True, counts_nom)
+            plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"$\delta_{CP} + 20^{\circ}$", osc_inc_color, prob_plus_dcp, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"$\delta_{CP} - 20^{\circ}$", osc_dec_color, prob_minus_dcp, False, counts_nom)
 
-            ax.legend(loc = 'upper right')
-            ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{had}}}$ [MeV]")
+            ax_ratio.set_xlabel(r"$E_{\nu}^{\rm true}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90,1.1)
             plt.savefig("Fig1_plots/Fig1_DUNE_EnuTrue_dCP.pdf")
 
         else:
-            counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, "default PMNS", vivid_purple, prob_default_numu, True, counts_nom)
-            plot_osc_reco(ax, ax_ratio, Enu_t_sel, "Inc dm32", light_green, prob_plus_dm2, False, counts_nom)
-            plot_osc_reco(ax, ax_ratio, Enu_t_sel, "Dec dm32", dark_green, prob_minus_dm2, False, counts_nom)
+            counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$", tol_dark, prob_default_numu, True, counts_nom)
+            plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"$\Delta m^{2}_{32} + 0.4\%$", osc_inc_color, prob_plus_dm2, False, counts_nom)
+            plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"$\Delta m^{2}_{32} - 0.4\%$", osc_dec_color, prob_minus_dm2, False, counts_nom)
 
-            ax.legend(loc = 'upper right')
-            ax_ratio.set_xlabel(r"$E_{\nu}^{\text{\text{true}}}$ [MeV]")
+            ax_ratio.set_xlabel(r"$E_{\nu}^{\rm true}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90,1.1)
             plt.savefig("Fig1_plots/Fig1_DUNE_EnuTrue_dm32.pdf")
