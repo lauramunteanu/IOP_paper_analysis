@@ -397,14 +397,18 @@ DSIGMA_DE_LABEL = r"$\mathrm{d}\sigma/\mathrm{d}E$ [10$^{-42}$ cm$^2$/nucleon/Me
 # =============================================================================
 
 EXPECTED_EVENTS = {
-    ('DUNE', 'numu'):    15000,
-    ('DUNE', 'numubar'):  9000,
-    ('DUNE', 'nue'):      1500,
-    ('DUNE', 'nuebar'):   1000,
-    ('HK',   'numu'):     9000,
-    ('HK',   'numubar'):  7000,
-    ('HK',   'nue'):      2000,
-    ('HK',   'nuebar'):   1000,
+    # DUNE — IOP-paper canonical normalisations (2026-05-15). The 624 / 336
+    # factor scales the supplied per-336-d-equivalent numbers to the 624 d
+    # exposure used in the paper.
+    ('DUNE', 'numu'):    7235 * 624 / 336.0,
+    ('DUNE', 'numubar'): 2656 * 624 / 336.0,
+    ('DUNE', 'nue'):     1395 * 624 / 336.0,
+    ('DUNE', 'nuebar'):   164 * 624 / 336.0,
+    # HK — IOP-paper canonical normalisations (2026-05-15).
+    ('HK',   'numu'):     8845.1,
+    ('HK',   'numubar'): 12027.2,
+    ('HK',   'nue'):      2474.7,
+    ('HK',   'nuebar'):   1542.7,
 }
 
 EVENT_RATE_LABEL = r"Events / bin"
@@ -898,7 +902,8 @@ def enu_reco_arr(arr, observable, *, vertex=False):
     raise ValueError(f"unknown observable {observable!r}; use 'qe', 'had' or 'avail'")
 
 
-def smooth_shift_ratio(counts, edges, shift):
+def smooth_shift_ratio(counts, edges, shift,
+                       count_floor_frac=1e-3, ratio_clip=10.0):
     """Analytical H(E - shift) / H(E) via centered finite-difference of log-counts.
 
     Uses the first-order Taylor expansion
@@ -907,12 +912,29 @@ def smooth_shift_ratio(counts, edges, shift):
     per-bin Poisson scatter from the explicit-shift implementation.
 
     `edges` and `shift` must be in the same units; `counts` is the
-    unshifted weighted bin contents.
+    unshifted weighted bin contents. `shift` may be a scalar or a per-bin
+    array (numpy broadcasts) — the latter handles per-event reconstructions
+    where the shift scales with energy (e.g. Δ = frac × E).
+
+    Numerical guard: in bins where `counts` < `count_floor_frac` × peak,
+    the `np.maximum(counts, 1e-30)` floor makes log H drop to ~-69 and the
+    centered-difference gradient at the live/dead boundary becomes huge,
+    blowing the exp() up by many orders of magnitude. There's no real
+    information in those near-empty bins, so we pin the ratio to 1.0
+    (no shift correction) and additionally clip the final ratio to
+    [1/ratio_clip, ratio_clip] as a safety net inside the live region.
     """
     centers = 0.5 * (edges[:-1] + edges[1:])
     safe = np.maximum(counts, 1e-30)
     dlogH_dE = np.gradient(np.log(safe), centers)
-    return np.exp(-shift * dlogH_dE)
+    ratio = np.exp(-shift * dlogH_dE)
+
+    counts_arr = np.asarray(counts)
+    peak = float(counts_arr.max()) if counts_arr.size else 0.0
+    if peak > 0:
+        alive = counts_arr > count_floor_frac * peak
+        ratio = np.where(alive, ratio, 1.0)
+    return np.clip(ratio, 1.0 / ratio_clip, ratio_clip)
 
 
 # Default method for energy-shift systematics in the Fig1 ratio panels.

@@ -1,21 +1,20 @@
-"""DUNE nue / nuebar appearance-channel ratio under dCP and energy-shift
-variations. Two PDFs (Enu_true and Enu_had x-axes), each showing the
-ratio R(E) = N_{nu_e} / N_{nu_e bar} for nominal + variants, plus a
-variant/nominal double-ratio. Mirrors Fig1_dCP_DUNE_plot.py's layout
-and reuses its bin spec.
+"""DUNE nue / nuebar appearance-ratio with relative-energy-shift systematic
+(+-0.5% * Enu_true). Sibling of Fig1_dCP_DUNE_ratio_plot.py: identical
+dCP variants, but the +-15 MeV constant shift is replaced by a
+per-event fractional shift via smooth_shift_ratio with a per-bin shift
+array.
 """
 from FlatTreeMod import *
 ROOT.gROOT.SetBatch(True)
 
-# DUNE binning (matches Fig1_dCP_DUNE_plot.py)
-bin_width = 100.0  # MeV
+bin_width = 100.0
 bins = np.arange(0, 6000 + bin_width, step=bin_width)
 centers = 0.5 * (bins[:-1] + bins[1:])
 L_DUNE = 1285.0
+SHIFT_FRAC = 0.005
 
 
 def _osc_prob(Enu_t_GeV, dCP_used, is_nubar):
-    """Per-event P(numu(bar) -> nue(bar)) at the DUNE baseline (E in GeV)."""
     pmns.SetPath(L_DUNE, 2.8)
     pmns.SetMix(theta12, theta23, theta13, dCP_used)
     pmns.SetDeltaMsqrs(dm21, dm32)
@@ -30,9 +29,9 @@ def _scaled_counts(x_MeV, Enu_t_GeV, target, dCP_used, is_nubar):
     return counts
 
 
-def _ratio(counts_nue, counts_nuebar):
-    safe = np.where(counts_nuebar > 0, counts_nuebar, np.nan)
-    return counts_nue / safe
+def _ratio(c_nue, c_nuebar):
+    safe = np.where(c_nuebar > 0, c_nuebar, np.nan)
+    return c_nue / safe
 
 
 def _step_double_ratio(ax_ratio, variant_ratio, nominal_ratio, color):
@@ -53,16 +52,12 @@ def plot_ratio(IsReco):
     arr_numu  = load_arrays(f_numu,  max_events=1_000_000)
     arr_nubar = load_arrays(f_nubar, max_events=1_000_000)
 
-    # For DUNE the Eν^had is built from the particle stack; use enu_had_arr.
     bias_wo_numu,  bias_with_numu,  cc_numu  = enu_had_arr(arr_numu,  vertex=False)
     bias_wo_nubar, bias_with_nubar, cc_nubar = enu_had_arr(arr_nubar, vertex=False)
     Enu_t_GeV_numu  = ak.to_numpy(arr_numu['Enu_true'])[np.asarray(cc_numu,  dtype=bool)]
     Enu_t_GeV_nubar = ak.to_numpy(arr_nubar['Enu_true'])[np.asarray(cc_nubar, dtype=bool)]
-    Enu_t_MeV_numu  = Enu_t_GeV_numu  * 1000.0
-    Enu_t_MeV_nubar = Enu_t_GeV_nubar * 1000.0
 
     if IsReco:
-        # Enu_had (with charged-pion full E) — matches Fig1_dCP_DUNE_plot.py.
         x_numu_GeV  = bias_with_numu  + Enu_t_GeV_numu
         x_nubar_GeV = bias_with_nubar + Enu_t_GeV_nubar
         x_numu  = np.asarray(x_numu_GeV)  * 1000.0
@@ -70,8 +65,8 @@ def plot_ratio(IsReco):
         xlabel_str = r"$E_{\nu}^{\rm had}$ [MeV]"
         save_tag = "Enuhad"
     else:
-        x_numu  = Enu_t_MeV_numu
-        x_nubar = Enu_t_MeV_nubar
+        x_numu  = Enu_t_GeV_numu  * 1000.0
+        x_nubar = Enu_t_GeV_nubar * 1000.0
         xlabel_str = r"$E_{\nu}^{\rm true}$ [MeV]"
         save_tag = "EnuTrue"
 
@@ -99,16 +94,15 @@ def plot_ratio(IsReco):
     _step_double_ratio(ax_ratio, r_minus_dcp, r_nom, osc_dec_color)
 
     if IsReco:
-        # Smooth-shift via Taylor (same approach as Fig1_dCP_ratio_plot.py).
-        shift = 15.0  # MeV
-        sh_nue_p = c_nue_nom    * smooth_shift_ratio(c_nue_nom,    bins, +shift)
-        sh_nub_p = c_nuebar_nom * smooth_shift_ratio(c_nuebar_nom, bins, +shift)
-        sh_nue_m = c_nue_nom    * smooth_shift_ratio(c_nue_nom,    bins, -shift)
-        sh_nub_m = c_nuebar_nom * smooth_shift_ratio(c_nuebar_nom, bins, -shift)
+        sh = SHIFT_FRAC * centers
+        sh_nue_p = c_nue_nom    * smooth_shift_ratio(c_nue_nom,    bins, +sh)
+        sh_nub_p = c_nuebar_nom * smooth_shift_ratio(c_nuebar_nom, bins, +sh)
+        sh_nue_m = c_nue_nom    * smooth_shift_ratio(c_nue_nom,    bins, -sh)
+        sh_nub_m = c_nuebar_nom * smooth_shift_ratio(c_nuebar_nom, bins, -sh)
         r_plus_shift  = _ratio(sh_nue_p, sh_nub_p)
         r_minus_shift = _ratio(sh_nue_m, sh_nub_m)
-        ax.step(centers, r_plus_shift,  where='mid', color=pastel_red,  lw=1.4, label=r"$E_{\nu}^{\rm had} + 15$ MeV")
-        ax.step(centers, r_minus_shift, where='mid', color=pastel_blue, lw=1.4, label=r"$E_{\nu}^{\rm had} - 15$ MeV")
+        ax.step(centers, r_plus_shift,  where='mid', color=pastel_red,  lw=1.4, label=r"$E_{\nu}^{\rm had} + 0.5\%\, E_{\nu}^{\rm true}$")
+        ax.step(centers, r_minus_shift, where='mid', color=pastel_blue, lw=1.4, label=r"$E_{\nu}^{\rm had} - 0.5\%\, E_{\nu}^{\rm true}$")
         _step_double_ratio(ax_ratio, r_plus_shift,  r_nom, pastel_red)
         _step_double_ratio(ax_ratio, r_minus_shift, r_nom, pastel_blue)
 
@@ -119,7 +113,7 @@ def plot_ratio(IsReco):
     ax_ratio.set_xlabel(xlabel_str)
     ax_ratio.set_ylabel("variant / nominal")
 
-    plt.savefig(outpath("Fig1_plots", f"Fig1_DUNE_ratio_dCP_{save_tag}.pdf"))
+    plt.savefig(outpath("Fig1_plots", f"Fig1_DUNE_ratio_dCP_relshift_{save_tag}.pdf"))
     plt.close(fig)
 
 
