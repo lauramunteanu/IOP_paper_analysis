@@ -5,3 +5,15 @@ scripts/__pycache__/*
 _cache/
 
 scripts/output/
+
+# editor / leftover snapshots
+*.bak
+*.bak.*
+
+# LaTeX scratch artefacts (auto-produced by pdflatex runs from laura_extras)
+texput.log
+*.aux
+
+# Stats_table.txt is regenerated on every Fig_HK_BoxWhisker run (truncate mode);
+# don't track its content.
+scripts/Stats_table.txt
