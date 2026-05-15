@@ -24,7 +24,7 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 from FlatTreeMod import load_arrays  # noqa: E402
 
-BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031"
+BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031_morestats"
 
 HK_FILES = {
     "numu":    f"{BASE}/HK/HK_numu_FSI.flat.root",

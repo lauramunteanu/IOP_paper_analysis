@@ -9,7 +9,7 @@ panels:
 from FlatTreeMod import *
 ROOT.gROOT.SetBatch(True)
 
-filename = "../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root"
+filename = "../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root"
 arr = load_arrays(filename, max_events=1_000_000)
 flag = is_cc0pi_arr(arr, vertex=False)
 Enu_t  = np.asarray(arr['Enu_true'])[flag] * 1000.0   # MeV
