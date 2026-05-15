@@ -113,6 +113,17 @@ dark_green     = '#117733'    # Tol muted dark green (replaces older olive)
 vivid_purple   = tol_magenta
 bright_yellow  = '#F0E442'
 
+# CB-friendly pastel red/blue used for +/- energy-shift overlays in the
+# Fig1 spectrum plots. Red = Tol muted "rose"; blue = Wong's "sky blue"
+# (slightly darker than Tol muted's #88CCEE for better legibility).
+pastel_red     = '#CC6677'
+pastel_blue    = '#56B4E9'
+
+# Fig1 osc-parameter variation pair — both in the green/teal family with
+# clear contrast. Tol muted's medium teal vs dark forest.
+osc_inc_color  = '#44AA99'   # +0.4% Δm² or +20° δCP — medium teal
+osc_dec_color  = '#117733'   # -0.4% Δm² or -20° δCP — dark forest
+
 # ----------------------------------------
 # Load OscProb shared library
 # ----------------------------------------
@@ -306,6 +317,71 @@ def make_fig_stacked(kind='double_stacked', sharex=True, sharey=False, hspace=0.
     )
 
 
+def save_strip_legend(handles, out_dir, fname, fig_w=7.0, fig_h=0.5,
+                      ncol=None, frameon=False):
+    """Save a thin horizontal-strip legend, no title. Designed to drop above
+    a side-by-side pair of subfigures in a LaTeX figure with
+    \\includegraphics[width=\\linewidth]{out_dir/fname.pdf}.
+    Default frameon=False (no border). Writes both .png (200 dpi) and .pdf."""
+    if ncol is None:
+        ncol = len(handles)
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    fig.legend(handles=handles, loc="center", ncol=ncol,
+               frameon=frameon, framealpha=1.0,
+               handletextpad=0.5, columnspacing=2.0,
+               borderpad=0.4, borderaxespad=0.0)
+    plt.savefig(f"{out_dir}/{fname}.png", dpi=200)
+    plt.savefig(f"{out_dir}/{fname}.pdf")
+    plt.close(fig)
+    Print(f"saved {out_dir}/{fname}.pdf")
+
+
+def save_spectra_legend(nominal_handle, osc_handles, shift_handles,
+                        out_dir, fname, fig_w=7.0, fig_h=0.7):
+    """3-column legend for the Fig1 spectrum plots. Column 1 = the single
+    'Nominal ...' entry centered vertically; column 2 = the 2 osc-parameter
+    variants stacked; column 3 = the 2 energy-shift variants stacked.
+    No frame. Centered around (0.20 / 0.55 / 0.85) figure-x."""
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    ax.set_axis_off()
+    leg1 = ax.legend(handles=[nominal_handle], loc="center",
+                     bbox_to_anchor=(0.20, 0.5),
+                     frameon=False, handletextpad=0.5)
+    ax.add_artist(leg1)
+    leg2 = ax.legend(handles=osc_handles, loc="center",
+                     bbox_to_anchor=(0.55, 0.5), ncol=1,
+                     frameon=False, handletextpad=0.5)
+    ax.add_artist(leg2)
+    ax.legend(handles=shift_handles, loc="center",
+              bbox_to_anchor=(0.85, 0.5), ncol=1,
+              frameon=False, handletextpad=0.5)
+    plt.savefig(f"{out_dir}/{fname}.png", dpi=200)
+    plt.savefig(f"{out_dir}/{fname}.pdf")
+    plt.close(fig)
+    Print(f"saved {out_dir}/{fname}.pdf")
+
+
+def save_bw_legend(metric_handles, color_handles, out_dir, fname,
+                   fig_w=7.0, fig_h=1.0):
+    """Combined BW legend: row 1 = metric markers, row 2 = variant colours,
+    both centered horizontally, no frame."""
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    ax.set_axis_off()
+    leg1 = ax.legend(handles=metric_handles, loc="center",
+                     bbox_to_anchor=(0.5, 0.75),
+                     ncol=len(metric_handles),
+                     frameon=False, handletextpad=0.5, columnspacing=2.0)
+    ax.add_artist(leg1)
+    ax.legend(handles=color_handles, loc="center",
+              bbox_to_anchor=(0.5, 0.25),
+              ncol=len(color_handles),
+              frameon=False, handletextpad=0.5, columnspacing=2.0)
+    plt.savefig(f"{out_dir}/{fname}.png", dpi=200)
+    plt.savefig(f"{out_dir}/{fname}.pdf")
+    plt.close(fig)
+    Print(f"saved {out_dir}/{fname}.pdf")
+
+
 # Global scale for dσ/dE histograms. Multiply weights by DSIGMA_DE_SCALE
 # before histogramming and label the axis with DSIGMA_DE_LABEL — this works
 # around matplotlib's autoscale failure on raw values ~1e-42 cm²/nucleon/MeV.
@@ -331,7 +407,7 @@ EXPECTED_EVENTS = {
     ('HK',   'nuebar'):   1000,
 }
 
-EVENT_RATE_LABEL = r"Events / MeV"
+EVENT_RATE_LABEL = r"Events / bin"
 
 
 def detect_exp_flav(filename):
@@ -360,17 +436,20 @@ def make_weights_dxsec(arr, bin_width, fScaleFactor=None):
     return fScaleFactor * DSIGMA_DE_SCALE / bin_width
 
 
-def make_weights_event_rate(arr, filename, bin_width):
+def make_weights_event_rate(arr, filename, bin_width=None):
     """Per-event constant weight for Enu-spectrum plots scaled to expected
-    event yield. Returns target / N_gen / bin_width — caller multiplies by
-    np.ones_like(observable). Y-axis is 'Events / MeV' (EVENT_RATE_LABEL).
-    For oscillated spectra, multiply this scalar by the per-event probability
-    array before passing to ax.hist as weights.
+    event yield. Returns target / N_gen — caller multiplies by
+    np.ones_like(observable). Y-axis is 'Events / bin' (EVENT_RATE_LABEL).
+    Histogram bins integrate to the expected event yield. For oscillated
+    spectra, multiply this scalar by the per-event probability array before
+    passing to ax.hist as weights. The `bin_width` argument is unused and
+    kept only for backwards compatibility with older callers.
     """
+    del bin_width  # unused — kept for API compat
     exp, flav = detect_exp_flav(filename)
     target = EXPECTED_EVENTS[(exp, flav)]
     n_gen  = len(arr['Enu_true'])
-    return target / n_gen / bin_width
+    return target / n_gen
 
 
 def expected_events(filename, channel=None):
