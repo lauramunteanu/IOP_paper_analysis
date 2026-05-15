@@ -56,18 +56,13 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, isNub, nEvents, nominal=False, co
         where='post'
       )
 
-  if(isNub == False):
-    ax.set_title(r"$\nu_{\mu}$")
-  else:
-    ax.set_title(r"$\bar{\nu}_{\mu}$")
-
   return counts
 
 
 fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
 
 _events = -1
-fname_FSI   = "../../Remade_April26/nuwro_25031/HK/HK_numubar_FSI.flat.root"
+fname_FSI   = "../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root"
 fname_noFSI = noFSI_path(fname_FSI)
 
 counts_nom = plot_Enu_bias_numu(
@@ -81,7 +76,7 @@ counts_fsi = plot_Enu_bias_numu(
 
 ax.axvline(0, color='black', linestyle='--', lw=0.7)
 ax.legend(custom_lines, labels, loc='upper right')
-ax.set_xlim(-1000, 1000)
+ax.set_xlim(-900, 300)
 # Force ylim from the actual histogram peak — matplotlib autoscale can fail
 # at the dσ/dE ~ 1e-42 cm²/nucleon/MeV range.
 peak = max(float(counts_nom.max()), float(counts_fsi.max()))
@@ -90,17 +85,48 @@ ax.set_ylabel(DSIGMA_DE_LABEL)
 
 ax_ratio.set_xlabel(r"$E_{\nu}^{\rm QE} - E_{\nu}^{\rm true}$ [MeV]")
 ax_ratio.set_ylabel("FSI/noFSI")
-ax_ratio.set_xlim(-1000, 1000)
+ax_ratio.set_xlim(-900, 300)
 # y-range left to matplotlib auto-scale
 
 plt.savefig("Fig3_plots/Enu_bias_FSIvsNoFSI_numubar.pdf")
 plt.close(fig)
 
 
+# ---- HK numu version (parallel to the ν̄μ block above) ----
+custom_lines, labels = [], []
+fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
+
+fname_FSI   = "../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root"
+fname_noFSI = noFSI_path(fname_FSI)
+
+counts_nom = plot_Enu_bias_numu(
+    ax, ax_ratio, filename=fname_noFSI, isNub=False,
+    nEvents=_events, nominal=True,
+)
+counts_fsi = plot_Enu_bias_numu(
+    ax, ax_ratio, filename=fname_FSI, isNub=False,
+    nEvents=_events, nominal=False, counts_nom=counts_nom,
+)
+
+ax.axvline(0, color='black', linestyle='--', lw=0.7)
+ax.legend(custom_lines, labels, loc='upper right')
+ax.set_xlim(-900, 300)
+peak = max(float(counts_nom.max()), float(counts_fsi.max()))
+ax.set_ylim(0, peak * 1.15)
+ax.set_ylabel(DSIGMA_DE_LABEL)
+
+ax_ratio.set_xlabel(r"$E_{\nu}^{\rm QE} - E_{\nu}^{\rm true}$ [MeV]")
+ax_ratio.set_ylabel("FSI/noFSI")
+ax_ratio.set_xlim(-900, 300)
+
+plt.savefig("Fig3_plots/Enu_bias_FSIvsNoFSI_numu.pdf")
+plt.close(fig)
+
+
 # fig, ax = plt.subplots()
 # _events = 1000
-# plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031/HK/HK_numu_noFSI.flat.root", isNub=False, nEvents=_events)
-# ax = plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root", isNub=False, nEvents=_events)
+# plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_noFSI.flat.root", isNub=False, nEvents=_events)
+# ax = plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root", isNub=False, nEvents=_events)
 # ax.vlines(x=0, ymin=0, ymax = ax.get_ylim()[1], color='black', linestyles='--')
 # ax.legend(custom_lines, labels, loc = 'upper right')
 # ax.set_xlabel(r"$E_{\nu}^{\text{QE}} - E_{\nu}^{\text{true}}$ [MeV]")
@@ -109,8 +135,8 @@ plt.close(fig)
 
 # ax.clear()
 # custom_lines, labels = [], []
-# plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031/HK/HK_numubar_noFSI.flat.root", isNub=True, nEvents=_events)
-# ax = plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031/HK/HK_numubar_FSI.flat.root", isNub=True, nEvents=_events)
+# plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_noFSI.flat.root", isNub=True, nEvents=_events)
+# ax = plot_Enu_bias_numu(ax, filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root", isNub=True, nEvents=_events)
 # ax.vlines(x=0, ymin=0, ymax = ax.get_ylim()[1], color='black', linestyles='--')
 # ax.legend(custom_lines, labels, loc = 'upper right')
 # ax.set_xlabel(r"$E_{\nu}^{\text{QE}} - E_{\nu}^{\text{true}}$ [MeV]")
