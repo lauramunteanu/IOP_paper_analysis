@@ -53,15 +53,15 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, vertex=False):
                 color=color, linewidth=1.4, linestyle="--",
                 label=("With neutron" if has_n else "No neutron"))
 
-    ax.set_xlim(-1000, 1000)
+    ax.set_xlim(-900, 300)
     ax.set_ylabel(DSIGMA_DE_LABEL)
     ax.legend(loc='best')
     plt.savefig(f"Fig2_plots/Fig2_DUNE_EnuRecoBias_{plot_name}.pdf")
 
 
 _events = -1
-NUMU = "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root"
-NUMUB = "../../Remade_April26/nuwro_25031/DUNE/DUNE_numub_FSI.flat.root"
+NUMU = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root"
+NUMUB = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root"
 
 # noFSI line now comes from the dedicated noFSI sample file, not from the
 # vertex stack of the FSI sample (vertex stack is biased by NuWro's binding-

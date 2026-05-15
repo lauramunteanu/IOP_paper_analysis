@@ -7,7 +7,7 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, withPion,
   fScaleFactor = float(np.max(arr['fScaleFactor']))
 
   bin_width = 0.05
-  bins = np.arange(-0.7, 0 + bin_width, step=bin_width)
+  bins = np.arange(-0.9, 0.3 + bin_width, step=bin_width)
 
   # Use the canonical dσ/dE weight scaling (×DSIGMA_DE_SCALE = 1e42) so the
   # y-axis autoscales sensibly. Bias is in GeV here, so the y-axis label
@@ -111,7 +111,6 @@ plot_Enu_bias_numu(
 )
 
 ax.legend(custom_lines, labels, loc='best')
-ax.set_title(r"$\nu_{\mu}$, w/o pion mass")
 ax.set_ylabel(
     r"$\mathrm{d}\sigma/\mathrm{d}E$ "
     r"[10$^{-42}$ cm$^{2}$/nucleon/GeV]"
@@ -119,6 +118,8 @@ ax.set_ylabel(
 
 ax_ratio.set_xlabel(r"$E_{\nu}^{\text{avail}} - E_{\nu}^{\text{true}}$ [GeV]")
 ax_ratio.set_ylabel("ED-RMF/RPWIA")
+ax.set_xlim(-0.9, 0.3)
+ax_ratio.set_xlim(-0.9, 0.3)
 ax_ratio.set_ylim(0.5, 1.5)
 
 plt.savefig("Fig7_plots/Fig7_Ar40_EnuRecoBias_EDRMF_RPWIA_WithoutPion_ratio.pdf")
@@ -156,7 +157,6 @@ plot_Enu_bias_numu(
 )
 
 ax.legend(custom_lines, labels, loc='best')
-ax.set_title(r"$\nu_{\mu}$, w/ pion mass")
 ax.set_ylabel(
     r"$\mathrm{d}\sigma/\mathrm{d}E$ "
     r"[10$^{-42}$ cm$^{2}$/nucleon/GeV]"
@@ -164,6 +164,8 @@ ax.set_ylabel(
 
 ax_ratio.set_xlabel(r"$E_{\nu}^{\text{had}} - E_{\nu}^{\text{true}}$ [GeV]")
 ax_ratio.set_ylabel("ED-RMF/RPWIA")
+ax.set_xlim(-0.9, 0.3)
+ax_ratio.set_xlim(-0.9, 0.3)
 ax_ratio.set_ylim(0.5, 1.5)
 
 plt.savefig("Fig7_plots/Fig7_Ar40_EnuRecoBias_EDRMF_RPWIA_WithPion_ratio.pdf")

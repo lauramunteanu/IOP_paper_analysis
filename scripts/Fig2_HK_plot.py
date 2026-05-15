@@ -34,7 +34,7 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, vertex=False):
             color=mode_colors.get(m, "gray"), linewidth=1.4,
             linestyle="--", label=f"Mode {m}")
 
-  ax.set_xlim(-1000, 1000)
+  ax.set_xlim(-900, 300)
   ax.set_xlabel(r"$E_{\nu}^{\rm QE} - E_{\nu}^{\rm true}$ [MeV]")
   ax.set_ylabel(DSIGMA_DE_LABEL)
   ax.legend(loc='best')
@@ -45,9 +45,9 @@ _events = -1
 # noFSI line now from the dedicated noFSI file with vertex=False (the FSI
 # vertex stack is biased by NuWro binding-energy bookkeeping at cascade exit;
 # loading the noFSI sample sidesteps that).
-plot_Enu_bias(filename=noFSI_path("../../Remade_April26/nuwro_25031/HK/HK_numu_FSI.flat.root"),
+plot_Enu_bias(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root"),
               label=r"no FSI $\nu_{\mu}$", isNuBar=False, nEvents=_events,
               plot_name="noFSI_numu", vertex=False)
-plot_Enu_bias(filename=noFSI_path("../../Remade_April26/nuwro_25031/HK/HK_numubar_FSI.flat.root"),
+plot_Enu_bias(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root"),
               label=r"no FSI $\bar{\nu}_{\mu}$", isNuBar=True, nEvents=_events,
               plot_name="noFSI_numubar", vertex=False)

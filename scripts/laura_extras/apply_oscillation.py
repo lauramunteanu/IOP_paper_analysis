@@ -35,7 +35,7 @@ import ROOT
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031"
+BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs/nuwro_25031_morestats"
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 MAX_EVENTS = None        # None = full stats
 
@@ -46,7 +46,7 @@ EARTH_DENSITY_GCC = 2.8
 
 BASELINE_KM = {"hk": 295.0, "dune": 1285.0}
 
-XMIN_FIXED, XMAX_FIXED = -1000.0, 1000.0
+XMIN_FIXED, XMAX_FIXED = -900.0, 300.0
 HK_NBINS, HK_HIST_RANGE   = 200, (-1000.0, 1000.0)
 DUNE_NBINS, DUNE_HIST_RANGE = 400, (-3000.0, 1000.0)
 HIST_FILL_ALPHA = 0.22

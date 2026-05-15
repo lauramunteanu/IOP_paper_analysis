@@ -86,19 +86,19 @@ _events = 10000
 
 plot_configs = [
     {"withPion": True,  "flavor": "numu",
-     "file": "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root",
+     "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",
      "title": r"$\nu_{\mu}$, w/ pion mass",
      "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numu.pdf"},
     {"withPion": True,  "flavor": "numubar",
-     "file": "../../Remade_April26/nuwro_25031/DUNE/DUNE_numub_FSI.flat.root",
+     "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root",
      "title": r"$\bar{\nu}_{\mu}$, w/ pion mass",
      "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithPion_numubar.pdf"},
     {"withPion": False, "flavor": "numu",
-     "file": "../../Remade_April26/nuwro_25031/DUNE/DUNE_numu_FSI.flat.root",
+     "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",
      "title": r"$\nu_{\mu}$, w/o pion mass",
      "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numu.pdf"},
     {"withPion": False, "flavor": "numubar",
-     "file": "../../Remade_April26/nuwro_25031/DUNE/DUNE_numub_FSI.flat.root",
+     "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root",
      "title": r"$\bar{\nu}_{\mu}$, w/o pion mass",
      "outfile": "Fig4_plots/Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numubar.pdf"},
 ]
@@ -119,15 +119,14 @@ for cfg in plot_configs:
     )
 
     ax.legend(custom_lines, labels, loc='best')
-    ax.set_title(cfg["title"])
-    ax.set_xlim(-1000, 1000)
+    ax.set_xlim(-900, 300)
     peak = max(float(counts_nom.max()), float(counts_fsi.max()))
     ax.set_ylim(0, peak * 1.15)
     ax.set_ylabel(DSIGMA_DE_LABEL)
 
     ax_ratio.set_xlabel(r"$E_{\nu}^{\rm reco} - E_{\nu}^{\rm true}$ [MeV]")
     ax_ratio.set_ylabel("FSI/noFSI")
-    ax_ratio.set_xlim(-1000, 1000)
+    ax_ratio.set_xlim(-900, 300)
     # y-range left to matplotlib auto-scale
 
     plt.savefig(cfg["outfile"])

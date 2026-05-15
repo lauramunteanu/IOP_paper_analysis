@@ -7,7 +7,7 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, nominal=False, co
   fScaleFactor = float(np.max(arr['fScaleFactor']))
 
   bin_width = 20
-  bins = np.arange(-1000, 1000, step=bin_width)
+  bins = np.arange(-900, 300, step=bin_width)
   # Use the canonical dσ/dE weight scaling so the y-axis autoscales sensibly
   # (raw fScaleFactor is ~1e-45; without DSIGMA_DE_SCALE the bars vanish at y~0).
   weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(diff_sel)
@@ -60,8 +60,6 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, nominal=False, co
       )
       
 
-  ax.set_title(r"HK $\nu_{\mu}$")
-
   return counts
 
 
@@ -93,6 +91,8 @@ plot_Enu_bias_numu(
 ax.vlines(x=0, ymin=0, ymax=ax.get_ylim()[1], color='black', linestyles='--')
 ax.legend(custom_lines, labels, loc='best')
 
+ax.set_xlim(-900, 300)
+ax_ratio.set_xlim(-900, 300)
 ax.set_ylabel(DSIGMA_DE_LABEL)
 
 ax_ratio.set_xlabel(r"$E_{\nu}^{\text{QE}} - E_{\nu}^{\text{true}}$ [MeV]")

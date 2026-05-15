@@ -32,7 +32,7 @@ def plot_Enu_bias_numu(ax, filename, nEvents):
 
 
 fig, ax = make_fig('single')
-fname = "../../Remade_April26/nuwro_25031/HK/HK_numubar_FSI.flat.root"
+fname = "../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root"
 ax = plot_Enu_bias_numu(ax, filename=fname, nEvents=100000)
 plot_Enu_bias_numu_flag(ax, filename=fname, nEvents=100000)
 plt.legend()
