@@ -1,10 +1,14 @@
-"""Standalone-strip legends for the four Fig1 spectrum-figure pairs.
+"""Standalone-strip legends for the Fig1 spectrum-figure pairs.
 
 Output (under scripts/Fig1_plots/):
-  legend_Fig1_HK_dm32.{png,pdf}      — HK Δm²₃₂ variation + ±5 MeV shift
-  legend_Fig1_HK_dCP.{png,pdf}       — HK δ_CP variation + ±5 MeV shift
-  legend_Fig1_DUNE_dm32.{png,pdf}    — DUNE Δm²₃₂ variation + ±15 MeV shift
-  legend_Fig1_DUNE_dCP.{png,pdf}     — DUNE δ_CP variation + ±15 MeV shift
+  legend_Fig1_HK_dm32.{png,pdf}             — HK Δm²₃₂ variation + ±5 MeV shift
+  legend_Fig1_HK_dCP.{png,pdf}              — HK δ_CP variation + ±5 MeV shift
+  legend_Fig1_DUNE_dm32.{png,pdf}           — DUNE Δm²₃₂ variation + ±15 MeV shift
+  legend_Fig1_DUNE_dCP.{png,pdf}            — DUNE δ_CP variation + ±15 MeV shift
+  legend_Fig1_HK_dm32_relshift.{png,pdf}    — HK Δm²₃₂ variation + ±0.5%·E^true shift
+  legend_Fig1_HK_dCP_relshift.{png,pdf}     — HK δ_CP  variation + ±0.5%·E^true shift
+  legend_Fig1_DUNE_dm32_relshift.{png,pdf}  — DUNE Δm²₃₂ variation + ±0.5%·E^true shift
+  legend_Fig1_DUNE_dCP_relshift.{png,pdf}   — DUNE δ_CP  variation + ±0.5%·E^true shift
 
 Each is a 3-column horizontal-strip figure (no frame): col 1 = Nominal
 (centered vertically), col 2 = osc-parameter variants stacked, col 3 =
@@ -81,12 +85,53 @@ def dune_dcp():
     return nominal, osc, shifts
 
 
+# --- relshift variants: same osc lines, ±0.5%·E_nu^true shift instead of ±5/15 MeV.
+def hk_dm32_relshift():
+    nominal, osc, _ = hk_dm32()
+    shifts = [
+        line(pastel_red,  r"$E_{\nu}^{\rm QE} + 0.5\%\, E_{\nu}^{\rm true}$"),
+        line(pastel_blue, r"$E_{\nu}^{\rm QE} - 0.5\%\, E_{\nu}^{\rm true}$"),
+    ]
+    return nominal, osc, shifts
+
+
+def hk_dcp_relshift():
+    nominal, osc, _ = hk_dcp()
+    shifts = [
+        line(pastel_red,  r"$E_{\nu}^{\rm QE} + 0.5\%\, E_{\nu}^{\rm true}$"),
+        line(pastel_blue, r"$E_{\nu}^{\rm QE} - 0.5\%\, E_{\nu}^{\rm true}$"),
+    ]
+    return nominal, osc, shifts
+
+
+def dune_dm32_relshift():
+    nominal, osc, _ = dune_dm32()
+    shifts = [
+        line(pastel_red,  r"$E_{\nu}^{\rm had} + 0.5\%\, E_{\nu}^{\rm true}$"),
+        line(pastel_blue, r"$E_{\nu}^{\rm had} - 0.5\%\, E_{\nu}^{\rm true}$"),
+    ]
+    return nominal, osc, shifts
+
+
+def dune_dcp_relshift():
+    nominal, osc, _ = dune_dcp()
+    shifts = [
+        line(pastel_red,  r"$E_{\nu}^{\rm had} + 0.5\%\, E_{\nu}^{\rm true}$"),
+        line(pastel_blue, r"$E_{\nu}^{\rm had} - 0.5\%\, E_{\nu}^{\rm true}$"),
+    ]
+    return nominal, osc, shifts
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     save_spectra_legend(*hk_dm32(),   out_dir=OUT_DIR, fname="legend_Fig1_HK_dm32")
     save_spectra_legend(*hk_dcp(),    out_dir=OUT_DIR, fname="legend_Fig1_HK_dCP")
     save_spectra_legend(*dune_dm32(), out_dir=OUT_DIR, fname="legend_Fig1_DUNE_dm32")
     save_spectra_legend(*dune_dcp(),  out_dir=OUT_DIR, fname="legend_Fig1_DUNE_dCP")
+    save_spectra_legend(*hk_dm32_relshift(),   out_dir=OUT_DIR, fname="legend_Fig1_HK_dm32_relshift")
+    save_spectra_legend(*hk_dcp_relshift(),    out_dir=OUT_DIR, fname="legend_Fig1_HK_dCP_relshift")
+    save_spectra_legend(*dune_dm32_relshift(), out_dir=OUT_DIR, fname="legend_Fig1_DUNE_dm32_relshift")
+    save_spectra_legend(*dune_dcp_relshift(),  out_dir=OUT_DIR, fname="legend_Fig1_DUNE_dCP_relshift")
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
-"""HK dCP spectrum -- relative-energy-shift sibling of Fig1_dCP_plot.py.
+"""HK dCP spectrum -- RHC + relative-energy-shift sibling.
 
-Replaces the constant +-5 MeV shift with a per-event +-0.5% * Enu_true
-shift, applied via FlatTreeMod.smooth_shift_ratio with a per-bin shift
-array. Same osc-parameter variations and same output structure as
-Fig1_dCP_plot.py; output filenames carry a `_relshift` suffix.
+Combines the RHC channel (ν̄μ beam, P(ν̄μ → ν̄e)) of Fig1_dCP_RHC_plot.py
+with the per-event ±0.5%·E_ν^true shift of Fig1_dCP_relshift_plot.py.
+Output PDF names carry both `_RHC` and `_relshift` suffixes; plots are
+titled "RHC".
 """
 from FlatTreeMod import *
 
@@ -32,7 +32,6 @@ def plot_osc_reco(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts
 
 
 def plot_osc_true(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts_nom):
-    # Same shape as plot_osc_reco. Kept separate to mirror Fig1_dCP_plot.py.
     return plot_osc_reco(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts_nom)
 
 
@@ -49,6 +48,7 @@ def plot_EnuReco(filename, nEvents, IsReco):
 
     L = 295.0
     pmns.SetPath(L, 2.8)
+    pmns.SetIsNuBar(True)   # RHC: P(ν̄μ → ν̄e)
     pmns.SetMix(theta12, theta23, theta13, deltaCP)
     pmns.SetDeltaMsqrs(dm21, dm32)
     prob_default_nue = np.array([pmns.Prob(1, 0, E / 1000.0, L) for E in Enu_t_sel])
@@ -59,7 +59,7 @@ def plot_EnuReco(filename, nEvents, IsReco):
     pmns.SetMix(theta12, theta23, theta13, deltaCP - 20 * np.pi / 180)
     prob_minus_dcp = np.array([pmns.Prob(1, 0, E / 1000.0, L) for E in Enu_t_sel])
 
-    target = expected_events(filename, channel='nue')
+    target = expected_events(filename, channel='nuebar')
     scale = target / float(prob_default_nue.sum())
     prob_default_nue = prob_default_nue * scale
     prob_plus_dcp    = prob_plus_dcp    * scale
@@ -82,7 +82,7 @@ def plot_EnuReco(filename, nEvents, IsReco):
         ax.set_xlim(0, 1200)
         ax_ratio.set_xlim(0, 1200)
         ax_ratio.set_ylim(0.90, 1.1)
-        plt.savefig(outpath("Fig1_plots", "Fig1_EnuQE_dCP_FHC_relshift.pdf"))
+        plt.savefig(outpath("Fig1_plots", "Fig1_EnuQE_dCP_RHC_relshift.pdf"))
         plt.close(fig)
     else:
         counts_nom = plot_osc_true(ax, ax_ratio, Enu_t_sel, r"Nominal $\delta_{CP} = -\pi/2$", tol_dark,       prob_default_nue, True, counts_nom)
@@ -93,9 +93,9 @@ def plot_EnuReco(filename, nEvents, IsReco):
         ax.set_xlim(0, 1200)
         ax_ratio.set_xlim(0, 1200)
         ax_ratio.set_ylim(0.90, 1.1)
-        plt.savefig(outpath("Fig1_plots", "Fig1_EnuTrue_dCP_FHC_relshift.pdf"))
+        plt.savefig(outpath("Fig1_plots", "Fig1_EnuTrue_dCP_RHC_relshift.pdf"))
         plt.close(fig)
 
 
-plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root", nEvents=1_000_000, IsReco=False)
-plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root", nEvents=1_000_000, IsReco=True)
+plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root", nEvents=1_000_000, IsReco=False)
+plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root", nEvents=1_000_000, IsReco=True)

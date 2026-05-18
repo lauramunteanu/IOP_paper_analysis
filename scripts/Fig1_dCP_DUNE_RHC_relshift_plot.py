@@ -1,8 +1,10 @@
-"""DUNE dCP / dm32 spectra -- relative-energy-shift sibling of
-Fig1_dCP_DUNE_plot.py. Replaces the +-15 MeV reco-energy shift with a
-per-event +-0.5% * Enu_true shift via FlatTreeMod.smooth_shift_ratio
-with a per-bin shift array. Produces four PDFs (EnuTrue / Enuhad x
-dCP / dm32) with a `_relshift` suffix.
+"""DUNE dCP / dm32 spectrum -- RHC + relative-energy-shift sibling.
+
+Combines the RHC channel (ν̄μ beam, P(ν̄μ → ν̄e) for dCP and
+P(ν̄μ → ν̄μ) for dm32) of Fig1_dCP_DUNE_RHC_plot.py with the per-event
+±0.5%·E_ν^true reco-energy shift of Fig1_dCP_DUNE_relshift_plot.py.
+Output PDF names carry both `_RHC` and `_relshift` suffixes; plots are
+titled "RHC".
 """
 from FlatTreeMod import *
 from collections import defaultdict
@@ -33,7 +35,7 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)
 
-    filename = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root"
+    filename = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root"
     arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
     bias_wo_GeV, bias_with_GeV, valid = enu_had_arr(arr, vertex=False)
     Enu_t_GeV  = np.asarray(arr['Enu_true'])[valid]
@@ -43,6 +45,7 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
 
     L = 1285.0
     pmns.SetPath(L, 2.8)
+    pmns.SetIsNuBar(True)   # RHC: antineutrino probabilities
     pmns.SetMix(theta12, theta23, theta13, deltaCP)
     pmns.SetDeltaMsqrs(dm21, dm32)
     prob_default_nue = np.array([pmns.Prob(1, 0, E, L) for E in Enu_t_GeV])
@@ -64,7 +67,7 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
 
     if IsReco:
         if IsdCP:
-            target = expected_events(filename, channel='nue')
+            target = expected_events(filename, channel='nuebar')
             scale = target / float(prob_default_nue.sum())
             prob_default_nue = prob_default_nue * scale
             prob_plus_dcp    = prob_plus_dcp    * scale
@@ -84,9 +87,9 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm had}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90, 1.1)
-            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_Enuhad_dCP_FHC_relshift.pdf"))
+            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_Enuhad_dCP_RHC_relshift.pdf"))
         else:
-            target = expected_events(filename, channel='numu')
+            target = expected_events(filename, channel='numubar')
             scale = target / float(prob_default_numu.sum())
             prob_default_numu = prob_default_numu * scale
             prob_plus_dm2     = prob_plus_dm2     * scale
@@ -106,7 +109,7 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm had}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90, 1.1)
-            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_Enuhad_dm32_FHC_relshift.pdf"))
+            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_Enuhad_dm32_RHC_relshift.pdf"))
     else:
         if IsdCP:
             counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"Nominal $\delta_{CP} = -\pi/2$", tol_dark, prob_default_nue, True, counts_nom)
@@ -115,7 +118,7 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm true}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90, 1.1)
-            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_EnuTrue_dCP_FHC_relshift.pdf"))
+            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_EnuTrue_dCP_RHC_relshift.pdf"))
         else:
             counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$", tol_dark, prob_default_numu, True, counts_nom)
             plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"$\Delta m^{2}_{32} + 0.4\%$", osc_inc_color, prob_plus_dm2,  False, counts_nom)
@@ -123,7 +126,7 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm true}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90, 1.1)
-            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_EnuTrue_dm32_FHC_relshift.pdf"))
+            plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_EnuTrue_dm32_RHC_relshift.pdf"))
     plt.close(fig)
 
 

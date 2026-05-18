@@ -1,3 +1,10 @@
+"""HK dCP spectrum -- RHC sibling of Fig1_dCP_plot.py.
+
+Uses the HK ν̄μ beam file and computes the antineutrino appearance
+probability P(ν̄μ → ν̄e) via pmns.SetIsNuBar(True). Same osc-parameter
+variations and same +-5 MeV reco-energy shift; output PDF names carry a
+`_RHC` suffix and the plots are titled "RHC".
+"""
 from FlatTreeMod import *
 
 custom_lines = []
@@ -21,7 +28,7 @@ def plot_osc_reco(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts
         ratio = np.nan_to_num(ratio, nan=0.0, posinf=0.0, neginf=0.0)
         ax_ratio.step(edges[1:-1], ratio, color=color, linestyle='-', where="mid")
         return
-        
+
 
 def plot_osc_true(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts_nom):
     ax.hist(diff_sel, bins=np.arange(0, 2000, step=bin_width), histtype='step', weights=weights, color=color,linewidth=1.5, label = label, linestyle = '-')
@@ -35,13 +42,13 @@ def plot_osc_true(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts
     else:
         counts, edges = np.histogram(diff_sel, weights=weights, bins=bins)
         ratio = counts[1:]/counts_nom[1:]
+        ratio = np.nan_to_num(ratio, nan=0.0, posinf=0.0, neginf=0.0)
         ax_ratio.step(edges[1:-1], ratio, color=color, linestyle='-', where="mid")
         return
-   
+
 
 
 def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
-    ## Set axis
     fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(1, 1), hspace=0.07)
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)
@@ -53,39 +60,25 @@ def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
     diff_sel = Enu_QE_sel - Enu_t_sel
     counts_nom = []
 
-    # ----------------------------------------
-    # Arrays to hold oscillation probs for
-    # different oscillation parameters
-    # ----------------------------------------
     prob_plus_dcp    = []
     prob_minus_dcp   = []
 
-    # ----------------------------------------
-    # Compute oscillation weights PER EVENT
-    # (convert MeV -> GeV for OscProb)
-    # ----------------------------------------
     L = 295.0
-    pmns.SetPath(L, 2.8)  # HK baseline; reset path in case a prior call (e.g. DUNE) re-pathed pmns
+    pmns.SetPath(L, 2.8)
+    pmns.SetIsNuBar(True)   # RHC: P(ν̄μ → ν̄e)
     pmns.SetMix(theta12, theta23, theta13, deltaCP)
-    pmns.SetDeltaMsqrs(dm21, dm32)  # reset, in case a previous call left pmns mutated
-    prob_default_nue = np.array([pmns.Prob(1, 0, E/1000.0, L) for E in Enu_t_sel])  # νμ → νe
+    pmns.SetDeltaMsqrs(dm21, dm32)
+    prob_default_nue = np.array([pmns.Prob(1, 0, E/1000.0, L) for E in Enu_t_sel])  # ν̄μ → ν̄e
 
-    ## Increase dCP by + 20deg
     dCP_new = deltaCP+(20*np.pi/180)
     pmns.SetMix(theta12, theta23, theta13, dCP_new)
-    prob_plus_dcp = np.array([pmns.Prob(1, 0, E/1000.0, L) for E in Enu_t_sel])  # νμ → νe
+    prob_plus_dcp = np.array([pmns.Prob(1, 0, E/1000.0, L) for E in Enu_t_sel])
 
-    ## Decrease dCP by  20deg
     dCP_new = deltaCP-(20*np.pi/180)
     pmns.SetMix(theta12, theta23, theta13, dCP_new)
-    prob_minus_dcp = np.array([pmns.Prob(1, 0, E/1000.0, L) for E in Enu_t_sel])  # νμ → νe
+    prob_minus_dcp = np.array([pmns.Prob(1, 0, E/1000.0, L) for E in Enu_t_sel])
 
-    # ----------------------------------------
-    # Scale to expected event yield: HK νe channel (νμ→νe oscillated).
-    # weights = prob × (target / Σ prob) -> histogram integrates to target
-    # events, so each bin shows "Events / bin" (EVENT_RATE_LABEL).
-    # ----------------------------------------
-    target = expected_events(filename, channel='nue')
+    target = expected_events(filename, channel='nuebar')
     sum_prob = float(prob_default_nue.sum())
     scale = target / sum_prob
     prob_default_nue = prob_default_nue * scale
@@ -109,7 +102,7 @@ def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
         ax.set_xlim(0,1200)
         ax_ratio.set_xlim(0,1200)
         ax_ratio.set_ylim(0.90,1.1)
-        plt.savefig(outpath("Fig1_plots", "Fig1_EnuQE_dCP_FHC.pdf"))
+        plt.savefig(outpath("Fig1_plots", "Fig1_EnuQE_dCP_RHC.pdf"))
         plt.close(fig)
 
     else:
@@ -122,16 +115,11 @@ def plot_EnuReco(filename: str, nEvents: int, IsReco: bool):
         ax.set_xlim(0,1200)
         ax_ratio.set_xlim(0,1200)
         ax_ratio.set_ylim(0.90,1.1)
-        plt.savefig(outpath("Fig1_plots", "Fig1_EnuTrue_dCP_FHC.pdf"))
+        plt.savefig(outpath("Fig1_plots", "Fig1_EnuTrue_dCP_RHC.pdf"))
         plt.close(fig)
     return
 
 
 
-plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root", nEvents = 1000000, IsReco = False)
-plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root", nEvents = 1000000, IsReco = True)
-
-
-
-
-
+plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root", nEvents = 1000000, IsReco = False)
+plot_EnuReco("../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root", nEvents = 1000000, IsReco = True)

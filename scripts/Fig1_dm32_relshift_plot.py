@@ -80,7 +80,7 @@ def plot_EnuReco(filename, nEvents, IsReco):
         ax.set_xlim(0, 1200)
         ax_ratio.set_xlim(0, 1200)
         ax_ratio.set_ylim(0.95, 1.05)
-        plt.savefig(outpath("Fig1_plots", "Fig1_EnuQE_dm32_relshift.pdf"))
+        plt.savefig(outpath("Fig1_plots", "Fig1_EnuQE_dm32_FHC_relshift.pdf"))
         plt.close(fig)
     else:
         counts_nom = plot_osc_true(ax, ax_ratio, Enu_t_sel, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$", tol_dark, prob_default_numu, True, counts_nom)
@@ -91,7 +91,7 @@ def plot_EnuReco(filename, nEvents, IsReco):
         ax.set_xlim(0, 1200)
         ax_ratio.set_xlim(0, 1200)
         ax_ratio.set_ylim(0.95, 1.05)
-        plt.savefig(outpath("Fig1_plots", "Fig1_EnuTrue_dm32_relshift.pdf"))
+        plt.savefig(outpath("Fig1_plots", "Fig1_EnuTrue_dm32_FHC_relshift.pdf"))
         plt.close(fig)
 
 

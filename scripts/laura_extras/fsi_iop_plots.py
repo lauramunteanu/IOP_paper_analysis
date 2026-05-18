@@ -27,6 +27,7 @@ import awkward as ak
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
+from matplotlib.ticker import MultipleLocator
 
 # Share Jake's mtime-keyed cache via FlatTreeMod.load_arrays. FlatTreeMod also
 # sets the project rcParams (Computer Modern serif, IOP-calibrated font sizes).
@@ -311,10 +312,14 @@ def setup_axes(ax, n_groups, xlabel, xmin, xmax, group_labels, group_centers,
         ax.set_yticklabels(group_labels)
     else:
         ax.set_yticklabels([])
-    # Faint vertical guide lines at the major x-ticks to help read box
-    # positions across the figure. set_axisbelow keeps them behind the data.
+    # Faint vertical guide lines at the major + minor x-ticks to help read
+    # box positions across the figure. set_axisbelow keeps them behind the
+    # data; minor grid is fainter so it doesn't compete with the major lines.
     ax.set_axisbelow(True)
-    ax.xaxis.grid(True, color="gray", linestyle="-", linewidth=0.4, alpha=0.25)
+    ax.xaxis.grid(True, which="major", color="gray", linestyle="-",
+                  linewidth=0.4, alpha=0.25)
+    ax.xaxis.grid(True, which="minor", color="gray", linestyle="-",
+                  linewidth=0.3, alpha=0.12)
     ax.axvline(0, color="gray", ls="--", lw=0.7)
     ax.set_xlabel(xlabel)
 
@@ -462,6 +467,9 @@ def _make_figure(fname_stem, flavour, mode, variants, group_label_suffix=""):
     ylabels = [OBS_LABELS[ok] + group_label_suffix for ok in obs_keys]
     setup_axes(ax, n_groups, _xlabel(mode), xmin, xmax, ylabels, group_centers,
                show_ylabels=show_ylabels)
+    # Minor ticks at 0.1 (rel) / 50 MeV (abs) so the minor grid drawn by
+    # setup_axes adds vertical guides between the labelled major ticks.
+    ax.xaxis.set_minor_locator(MultipleLocator(0.1 if mode == "rel" else 50.0))
 
     out = f"{fname_stem}_{flavour}_{mode}"
     plt.savefig(f"{OUT_DIR}/{out}.png", dpi=180)
