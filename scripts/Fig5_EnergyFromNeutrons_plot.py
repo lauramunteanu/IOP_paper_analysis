@@ -61,32 +61,23 @@ def make_grouped_hists(d):
     return hists
 
 
-def plot_grouped(ax, ax_ratio, hists, fsi_label, ymax):
-    colors = list(TOL_MUTED[:3]) + [tol_dark]
-    labels = [g[0] for g in GROUPS] + ["Total"]
-    linewidths = [1.2, 1.2, 1.2, 1.8]
-    for h, col, lw in zip(hists, colors, linewidths):
+FIG5_COLORS     = list(TOL_MUTED[:3]) + [tol_dark]
+FIG5_LABELS     = [g[0] for g in GROUPS] + ["Total"]
+FIG5_LINEWIDTHS = [1.2, 1.2, 1.2, 1.8]
+
+
+def plot_grouped(ax, ax_ratio, hists, ymax):
+    for h, col, lw in zip(hists, FIG5_COLORS, FIG5_LINEWIDTHS):
         ax.step(centers, h, where="mid", color=col, linewidth=lw)
 
     # Ratio panel: each subgroup / total. Shows how much each Nn contributes
     # to the total at each x-bin (sums to 1 across the 3 subgroup lines).
     h_total = hists[-1]
     safe_total = np.where(h_total > 0, h_total, np.nan)
-    for h, col, lw in zip(hists[:-1], colors[:-1], linewidths[:-1]):
+    for h, col, lw in zip(hists[:-1], FIG5_COLORS[:-1], FIG5_LINEWIDTHS[:-1]):
         ax_ratio.step(centers, h / safe_total, where="mid", color=col, linewidth=lw)
     ax_ratio.set_ylim(0, 1.05)
     ax_ratio.set_ylabel("fraction\nof total")
-
-    # Legend reordered for 2-col layout
-    #   Total | N=2
-    #   N=1   | N>=3
-    # matplotlib fills column-major, so handles must be in column-major order:
-    # [Total, N=1, N=2, N>=3].
-    handles = [Line2D([0], [0], color=c, linewidth=lw)
-               for c, lw in zip(colors, linewidths)]
-    reorder = [3, 0, 1, 2]
-    ax.legend([handles[i] for i in reorder], [labels[i] for i in reorder],
-              title=fsi_label, loc="upper right", ncol=2, frameon=False)
 
     ax.set_xlim(0, 1)
     ax.set_ylim(0, ymax)
@@ -118,10 +109,21 @@ for exp, flav, fname_FSI in SAMPLES:
     ymax = max(h.max() for state in pair for h in pair[state]) * 1.05
 
     # Pass 2: plot each side with shared y-scale + ratio panel showing each
-    # subgroup's contribution to the total.
+    # subgroup's contribution to the total. No per-plot legend -- the shared
+    # legend is written once at the end.
     for fsi_state in ("FSI", "noFSI"):
         fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
-        legend_title = "FSI" if fsi_state == "FSI" else "no FSI"
-        plot_grouped(ax, ax_ratio, pair[fsi_state], legend_title, ymax)
+        plot_grouped(ax, ax_ratio, pair[fsi_state], ymax)
         plt.savefig(outpath("Fig5_plots", f"Fig5_{exp}_EnergyFromNeutrons_{flav}_{fsi_state}.pdf"))
         plt.close(fig)
+
+
+# Single horizontal-strip legend shared by all 8 Fig5 PDFs.
+_legend_handles = [
+    Line2D([0], [0], color=c, linewidth=lw, label=lbl)
+    for c, lw, lbl in zip(FIG5_COLORS, FIG5_LINEWIDTHS, FIG5_LABELS)
+]
+save_strip_legend(_legend_handles,
+                  out_dir=os.path.dirname(outpath("Fig5_plots", "_")),
+                  fname="legend_Fig5_EnergyFromNeutrons",
+                  fig_w=7.0, fig_h=0.5)

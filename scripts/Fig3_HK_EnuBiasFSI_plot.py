@@ -1,6 +1,12 @@
 from FlatTreeMod import *
 ROOT.gROOT.SetBatch(True)
 
+# Match the laura_extras BW palette for the FSI / no-FSI distinction so this
+# figure and the BW summary plots share a colour key. (COL_GREY / COL_VERMILION
+# are defined locally in scripts/laura_extras/fsi_iop_plots.py.)
+COL_FSI   = "#444444"  # COL_GREY — with FSI
+COL_NOFSI = "#D55E00"  # COL_VERMILION — no FSI
+
 # Per-mode bin spec for the HK CC0pi bias histogram.
 #   abs:  20 MeV bins over [-1000, +1000] MeV; visible window (-900, +300) MeV
 #   rel:  0.005 bins over REL_BIAS_XLIM (= (-0.9, +0.3) dimensionless)
@@ -27,10 +33,10 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, isNub, nEvents, mode, nominal=Fal
   weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(diff_sel)
 
   if nominal:
-    color = dark_blue
-    label = "noFSI"
+    color = COL_NOFSI
+    label = "no FSI"
   else:
-    color = dark_red
+    color = COL_FSI
     label = "FSI"
 
   ax.hist(
@@ -83,7 +89,7 @@ def _draw_pair(fname_FSI, flav_tag, isNub, mode, n_events):
 
   spec = BIN_SPECS[mode]
   ax.axvline(0, color='black', linestyle='--', lw=0.7)
-  ax.legend(custom_lines, labels, loc='upper right')
+  ax.legend(custom_lines, labels, loc='upper left', fontsize=13)
   ax.set_xlim(*spec["xlim"])
   peak = max(float(counts_nom.max()), float(counts_fsi.max()))
   ax.set_ylim(0, peak * 1.15)
@@ -92,6 +98,10 @@ def _draw_pair(fname_FSI, flav_tag, isNub, mode, n_events):
   ax_ratio.set_xlabel(bias_xlabel("qe", mode))
   ax_ratio.set_ylabel("FSI/noFSI")
   ax_ratio.set_xlim(*spec["xlim"])
+  # numubar abs ratio naturally peaks > 4; cap so the dashed reference at 1
+  # stays readable. Other (flav, mode) combinations keep the auto y-range.
+  if flav_tag == "numubar" and mode == "abs":
+      ax_ratio.set_ylim(0, 2.1)
 
   plt.savefig(outpath("Fig3_plots", f"Enu_bias_FSIvsNoFSI_{flav_tag}_{mode}.pdf"))
   plt.close(fig)

@@ -13,7 +13,7 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, mode, vertex=Fa
     """Caller passes a noFSI sample file when they want the noFSI line; we
     always read the post-FSI stack (vertex=False). withPiCorr=True picks
     Enu^had (charged-pi full E); False picks Enu^avail (charged-pi KE only)."""
-    fig, ax = make_fig('single')
+    fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
     arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
 
     observable = "had" if withPiCorr else "avail"
@@ -29,32 +29,52 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, mode, vertex=Fa
     spec = BIN_SPECS[mode]
     bin_width = spec["bin_width"]
     bins = np.arange(spec["lo"], spec["hi"] + bin_width, step=bin_width)
+    centers = 0.5 * (bins[:-1] + bins[1:])
 
     fScaleFactor = float(np.max(arr['fScaleFactor']))
-    if withPiCorr:
-        line_color = dark_red
-        line_label = "w/ pion mass"
-    else:
-        line_color = dark_blue
-        line_label = "w/o pion mass correction"
-
     weights_total = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias)
-    ax.hist(bias, bins=bins, histtype='step', weights=weights_total,
-            color=line_color, linewidth=1.5, label=line_label)
+    counts_total, _ = np.histogram(bias, bins=bins, weights=weights_total)
 
-    for has_n, color in ((True, tol_magenta), (False, tol_teal)):
+    ax.hist(bias, bins=bins, histtype='step', weights=weights_total,
+            color=tol_dark, linewidth=1.8)
+
+    sub_counts = {}
+    for has_n, color, label in ((False, tol_teal,    "No neutrons"),
+                                (True,  tol_magenta, "With neutrons")):
         vals = bias_by_n[has_n]
         if len(vals) == 0:
+            sub_counts[has_n] = np.zeros_like(counts_total)
             continue
         w = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(vals)
         ax.hist(vals, bins=bins, histtype='step', weights=w,
-                color=color, linewidth=1.4, linestyle="--",
-                label=("With neutron" if has_n else "No neutron"))
+                color=color, linewidth=1.4)
+        c, _ = np.histogram(vals, bins=bins, weights=w)
+        sub_counts[has_n] = c
+
+    # Ratio panel: each subset / total. Floor the denominator at 1% of the
+    # peak total so low-stat tail bins decay smoothly toward 0 instead of
+    # bouncing between 0 and 1 when only a handful of events land in a bin.
+    denom_floor = max(0.01 * float(counts_total.max()), 1e-30)
+    safe_total = np.maximum(counts_total, denom_floor)
+    for has_n, color in ((False, tol_teal), (True, tol_magenta)):
+        ratio = sub_counts[has_n] / safe_total
+        ax_ratio.step(centers, ratio, where="mid", color=color, linewidth=1.4)
+    ax_ratio.set_ylim(0, 1.05)
+    ax_ratio.set_ylabel("fraction\nof total")
 
     ax.set_xlim(*spec["xlim"])
-    ax.set_xlabel(bias_xlabel(observable, mode))
     ax.set_ylabel(bias_ylabel(mode))
-    ax.legend(loc='best')
+    legend_handles = [
+        Line2D([0], [0], color=tol_dark,    lw=1.8, label="Total CC inc."),
+        Line2D([0], [0], color=tol_teal,    lw=1.4, label="No neutrons"),
+        Line2D([0], [0], color=tol_magenta, lw=1.4, label="With neutrons"),
+    ]
+    ax.legend(handles=legend_handles, loc='upper left', fontsize=13)
+    plt.setp(ax.get_xticklabels(), visible=False)
+
+    ax_ratio.set_xlim(*spec["xlim"])
+    ax_ratio.set_xlabel(bias_xlabel(observable, mode))
+
     plt.savefig(outpath("Fig2_plots", f"Fig2_DUNE_EnuRecoBias_{plot_name}_{mode}.pdf"))
     plt.close(fig)
 

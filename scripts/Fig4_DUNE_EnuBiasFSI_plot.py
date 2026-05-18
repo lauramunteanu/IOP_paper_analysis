@@ -1,6 +1,11 @@
 from FlatTreeMod import *
 ROOT.gROOT.SetBatch(True)
 
+# Match the laura_extras BW palette for the FSI / no-FSI distinction so this
+# figure and the BW summary plots share a colour key.
+COL_FSI   = "#444444"  # COL_GREY — with FSI
+COL_NOFSI = "#D55E00"  # COL_VERMILION — no FSI
+
 # Per-mode bin spec for the DUNE FSI-vs-noFSI bias histogram.
 BIN_SPECS = {
     "abs": dict(bin_width=16.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 300.0)),
@@ -20,13 +25,15 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, mode, nominal=
 
   weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias)
 
-  pion_label = "w/ pion mass" if withPion else "w/o pion mass"
+  # Label intentionally drops the pion-mass modifier: the with/without-pion
+  # variant is encoded in the output filename, and the user-facing legend
+  # only needs the FSI / no-FSI distinction.
   if nominal:
-    color = dark_blue
-    label = pion_label + " noFSI"
+    color = COL_NOFSI
+    label = "no FSI"
   else:
-    color = dark_red
-    label = pion_label + " FSI"
+    color = COL_FSI
+    label = "FSI"
 
   ax.hist(
       bias,
@@ -99,7 +106,7 @@ for mode in ("abs", "rel"):
         )
 
         spec = BIN_SPECS[mode]
-        ax.legend(custom_lines, labels, loc='best')
+        ax.legend(custom_lines, labels, loc='upper left', fontsize=13)
         ax.set_xlim(*spec["xlim"])
         peak = max(float(counts_nom.max()), float(counts_fsi.max()))
         ax.set_ylim(0, peak * 1.15)
