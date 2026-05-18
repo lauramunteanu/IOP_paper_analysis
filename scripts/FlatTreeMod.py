@@ -916,6 +916,49 @@ def enu_reco_arr(arr, observable, *, vertex=False):
     raise ValueError(f"unknown observable {observable!r}; use 'qe', 'had' or 'avail'")
 
 
+def auto_ratio_ylim(ax_ratio, counts_nom, *,
+                    peak_frac=0.01, padding=1.1, floor=0.005):
+    """Set ax_ratio's y-limits to ± padding × max(|ratio − 1|), restricted to
+    bins where ``counts_nom`` exceeds ``peak_frac × peak(counts_nom)``.
+
+    Use this on the bottom panel of figures that overlay variant/nominal
+    ratios so the y-range adapts to the actual variation while ignoring the
+    wild bin-to-bin fluctuations in the low-stat tails. ``floor`` is a
+    minimum half-range so the y-axis doesn't collapse to nothing when
+    variations are tiny.
+
+    Operates on the Line2D objects already drawn into ``ax_ratio`` via
+    ``ax_ratio.step(...)`` -- ``ax_ratio.hlines(1, ...)`` adds a
+    LineCollection so it doesn't appear in ``get_lines()`` and the
+    reference at 1 is correctly ignored.
+    """
+    counts_nom = np.asarray(counts_nom)
+    if counts_nom.size == 0:
+        return
+    peak = float(np.nanmax(counts_nom))
+    if peak <= 0:
+        return
+    mask = counts_nom > peak_frac * peak
+    max_dev = float(floor)
+    for line in ax_ratio.get_lines():
+        ydata = np.asarray(line.get_ydata(), dtype=float)
+        if ydata.size == 0:
+            continue
+        # Line ydata may be a hair shorter than mask (some scripts drop
+        # the underflow bin); align to whichever is shorter.
+        n = min(len(ydata), len(mask))
+        m = mask[:n]
+        valid = ydata[:n][m]
+        valid = valid[np.isfinite(valid)]
+        if valid.size == 0:
+            continue
+        dev = float(np.max(np.abs(valid - 1.0)))
+        if np.isfinite(dev):
+            max_dev = max(max_dev, dev)
+    half = padding * max_dev
+    ax_ratio.set_ylim(1.0 - half, 1.0 + half)
+
+
 def smooth_shift_ratio(counts, edges, shift,
                        count_floor_frac=1e-3, ratio_clip=10.0):
     """Analytical H(E - shift) / H(E) via centered finite-difference of log-counts.

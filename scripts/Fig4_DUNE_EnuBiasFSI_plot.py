@@ -116,6 +116,7 @@ for mode in ("abs", "rel"):
         ax_ratio.set_xlabel(bias_xlabel(observable, mode))
         ax_ratio.set_ylabel("FSI/noFSI")
         ax_ratio.set_xlim(*spec["xlim"])
+        auto_ratio_ylim(ax_ratio, counts_nom)
 
         plt.savefig(outpath("Fig4_plots", f"{cfg['stem']}_{mode}.pdf"))
         plt.close(fig)

@@ -98,10 +98,9 @@ def _draw_pair(fname_FSI, flav_tag, isNub, mode, n_events):
   ax_ratio.set_xlabel(bias_xlabel("qe", mode))
   ax_ratio.set_ylabel("FSI/noFSI")
   ax_ratio.set_xlim(*spec["xlim"])
-  # numubar abs ratio naturally peaks > 4; cap so the dashed reference at 1
-  # stays readable. Other (flav, mode) combinations keep the auto y-range.
-  if flav_tag == "numubar" and mode == "abs":
-      ax_ratio.set_ylim(0, 2.1)
+  # Auto-fit the ratio y-axis to ±10% padding around the largest deviation
+  # from 1 within bins that have decent stats (counts_nom > 10% of peak).
+  auto_ratio_ylim(ax_ratio, counts_nom)
 
   plt.savefig(outpath("Fig3_plots", f"Enu_bias_FSIvsNoFSI_{flav_tag}_{mode}.pdf"))
   plt.close(fig)
