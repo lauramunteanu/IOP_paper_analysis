@@ -33,7 +33,7 @@ from matplotlib.patches import Rectangle
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
-from FlatTreeMod import (load_arrays, bias_arr, REL_BIAS_XLIM,  # noqa: E402
+from FlatTreeMod import (load_arrays, bias_arr,  # noqa: E402
                          is_cc0pi_arr)
 
 # BW-specific font bump. The BW grid figures sit at 3.5" wide (one half of
@@ -67,9 +67,12 @@ MAX_EVENTS = None  # full stats (cache hit after first run)
 OUTER_ALPHA = 0.35
 
 # Per-mode plot limits. abs is MeV; rel is dimensionless (-E_true normalised).
+# Note: laura_extras BW plots use a tighter range than the parent Fig*_plot.py
+# scripts (which use REL_BIAS_XLIM = (-0.9, 0.3)) -- the BW box+whisker tails
+# rarely extend below -50% so the wider range wastes horizontal space.
 XLIM = {
-    "abs": (-900.0, 300.0),
-    "rel": REL_BIAS_XLIM,
+    "abs": (-500.0, 300.0),
+    "rel": (-0.5, 0.3),
 }
 HIST_RANGE_HK = {
     "abs": (-1000.0, 1000.0),
@@ -406,12 +409,25 @@ def _make_figure(fname_stem, flavour, mode, variants, group_label_suffix=""):
     obs_keys = [k for k, _ in OBS_GROUPS]
     n_groups = len(obs_keys)
     rows_per_group = len(variants)
+    # Row pitch (within a group), inter-group gap (between last row of group N
+    # and first row of group N+1), and top/bottom axis margins. Designed so
+    # within-group whitespace above the first row and below the last row of
+    # each group is equal (= inter_group_gap / 2), eliminating the
+    # asymmetric "lots of space below, none above" look.
     sub_pitch = 0.30
-    group_pitch = rows_per_group * sub_pitch + 0.30
+    inter_group_gap = 0.30
+    top_margin = 0.20
+    bottom_margin = 0.20
+    group_pitch = (rows_per_group - 1) * sub_pitch + inter_group_gap
     half = sub_pitch / 2 * 0.85
     show_ylabels = (flavour == "numu")
-    fig, ax = plt.subplots(figsize=(4.0, group_pitch * n_groups + 1.6))
-    fig.subplots_adjust(left=0.22, right=0.97, top=0.97, bottom=0.13)
+    # Figure height scales with total data-y span plus a fixed allowance for
+    # the x-axis label, ticks and any padding.
+    data_span = ((n_groups - 1) * group_pitch
+                 + (rows_per_group - 1) * sub_pitch
+                 + top_margin + bottom_margin)
+    fig, ax = plt.subplots(figsize=(4.0, data_span + 1.2))
+    fig.subplots_adjust(left=0.22, right=0.97, top=0.97, bottom=0.16)
 
     group_centers = []
     for gi, ok in enumerate(obs_keys):
@@ -427,11 +443,16 @@ def _make_figure(fname_stem, flavour, mode, variants, group_label_suffix=""):
                              v["color"], nbins=nbins, hist_range=hrange)
         group_centers.append(y0 + (rows_per_group - 1) * sub_pitch / 2)
 
+    # Dividers placed in the middle of the inter-group gap so the whitespace
+    # above the next group's first row equals the whitespace below the
+    # previous group's last row.
     for gi in range(1, n_groups):
-        ax.axhline(gi * group_pitch - sub_pitch / 2, color="k", lw=0.4, alpha=0.3)
+        ax.axhline(gi * group_pitch - inter_group_gap / 2,
+                   color="k", lw=0.4, alpha=0.3)
 
-    ax.set_ylim(group_pitch * (n_groups - 1) + (rows_per_group - 1) * sub_pitch + 0.4,
-                -0.4)
+    ax.set_ylim((n_groups - 1) * group_pitch
+                + (rows_per_group - 1) * sub_pitch + bottom_margin,
+                -top_margin)
 
     xmin, xmax = XLIM[mode]
     ylabels = [OBS_LABELS[ok] + group_label_suffix for ok in obs_keys]
