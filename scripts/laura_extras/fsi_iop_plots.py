@@ -311,6 +311,10 @@ def setup_axes(ax, n_groups, xlabel, xmin, xmax, group_labels, group_centers,
         ax.set_yticklabels(group_labels)
     else:
         ax.set_yticklabels([])
+    # Faint vertical guide lines at the major x-ticks to help read box
+    # positions across the figure. set_axisbelow keeps them behind the data.
+    ax.set_axisbelow(True)
+    ax.xaxis.grid(True, color="gray", linestyle="-", linewidth=0.4, alpha=0.25)
     ax.axvline(0, color="gray", ls="--", lw=0.7)
     ax.set_xlabel(xlabel)
 

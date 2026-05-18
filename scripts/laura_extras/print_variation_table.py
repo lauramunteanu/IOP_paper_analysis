@@ -37,21 +37,18 @@ NEUT_BASE = "/eos/home-l/lamuntea/FSI_IOP_paper/neut_runs"
 GENIE_FILES_BASE = "/eos/project-n/neutrino-generators/generatorOutput/FSIIOPPaperinputs"
 MAX_EVENTS = None
 
-# Per-mode shading thresholds. abs in MeV; rel dimensionless.
+# Per-mode shading thresholds. Stored in display units: abs in MeV, rel in
+# percent. rel = 0.5% for both HK and DUNE matches the critical bias level
+# established in the bias_level_study (cell is flagged if the displayed value
+# is >= 0.5%).
 THRESH_BY_MODE = {
     "abs": {"hk": 5.0,   "dune": 15.0},
-    "rel": {"hk": 0.01,  "dune": 0.005},
-}
-
-# Number-formatting per mode (LaTeX cell values).
-FMT_BY_MODE = {
-    "abs": "{:.1f}",
-    "rel": "{:.3f}",
+    "rel": {"hk": 0.5,   "dune": 0.5},
 }
 
 UNITS_BY_MODE = {
     "abs": "[MeV]",
-    "rel": "[dimensionless]",
+    "rel": r"[\%]",
 }
 
 
@@ -286,16 +283,21 @@ CAT_HEADERS = [
 OBS_ORDER = ["hk_qe", "dune_epi", "dune_tpi"]
 
 
-def fmt(v, thresh, num_fmt):
+def fmt(v, thresh, mode):
+    """Format one cell value in display units (rel: percent; abs: MeV) and
+    bold-face the number if its rounded display value is >= the threshold."""
     if v is None or not np.isfinite(v):
         return "--"
-    col = r"\cellcolor{red!12}" if v > thresh else ""
-    return f"{col}{num_fmt.format(v)}"
+    disp = v * 100.0 if mode == "rel" else v
+    # Compare on the value rounded to display precision so a cell shown as
+    # 0.5 always crosses the 0.5% threshold regardless of FP noise.
+    flagged = round(disp, 1) >= round(thresh, 1)
+    text = f"{disp:.1f}"
+    return rf"\textbf{{{text}}}" if flagged else text
 
 
 def emit_table(mode, rows, out_path):
     """Build the LaTeX table for one bias mode and write it to out_path."""
-    num_fmt = FMT_BY_MODE[mode]
     units = UNITS_BY_MODE[mode]
     thresh_by_exp = THRESH_BY_MODE[mode]
 
@@ -305,7 +307,6 @@ def emit_table(mode, rows, out_path):
     lines.append(rf"% Variation table ({mode}) -- requires:")
     lines.append(r"%   \usepackage{booktabs}")
     lines.append(r"%   \usepackage{multirow}")
-    lines.append(r"%   \usepackage[table]{xcolor}")
     lines.append(r"%   \usepackage{graphicx}   % for \rotatebox")
     lines.append("")
     n_cat = len(CAT_HEADERS)
@@ -349,8 +350,8 @@ def emit_table(mode, rows, out_path):
                     cells.extend(["", ""])
                     continue
                 med, mean = by_key.get((cat_label, flav, obs_key), (None, None))
-                cells.append(fmt(med, thresh, num_fmt))
-                cells.append(fmt(mean, thresh, num_fmt))
+                cells.append(fmt(med, thresh, mode))
+                cells.append(fmt(mean, thresh, mode))
             lines.append(" & ".join(cells) + r" \\")
 
     lines.append(r"\bottomrule")
