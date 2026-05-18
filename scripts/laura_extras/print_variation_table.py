@@ -168,7 +168,9 @@ def _read_dune(path, mode, observable):
     """observable in {'had', 'avail'}."""
     a = load_arrays(path, max_events=MAX_EVENTS)
     x = bias_arr(a, observable, kind=mode, vertex=False)
-    sel = np.asarray(a["cc"], dtype=bool)
+    # Match bias_arr's internal CC selection (cc & |PDGLep|==13).
+    sel = (np.asarray(a["cc"], dtype=bool)
+           & (np.abs(np.asarray(a["PDGLep"])) == 13))
     w = np.asarray(a["fScaleFactor"][sel])
     return x, w
 

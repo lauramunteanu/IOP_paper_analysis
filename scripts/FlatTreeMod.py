@@ -708,6 +708,15 @@ def is_cc0pi_arr(arr, *, vertex=False):
     The post-FSI branch used to read the pre-computed `flagCC0pi` field but
     GENIE NUISFLAT files don't carry it -- computing from `pdg` works for any
     NUISFLAT-format file regardless of generator.
+
+    The selection also requires ``|PDGLep|==13``: NUISFLAT's ``PDGLep`` branch
+    is filled with the highest-energy charged lepton in the final state, so
+    in rare DIS events with hard internal radiation it can be ``±11`` (e±)
+    instead of ``±13`` (μ). Those events then have their ``ELep`` set to the
+    e± energy too, which makes the reco-energy recipe double-count the
+    electron (it also appears in the hadronic sum via ``is_e``) and pushes
+    the bias positive. Dropping ``|PDGLep|!=13`` removes the resulting
+    +tail. Impact on a νμ/ν̄μ NuWro file: ~0.004% of CC events.
     """
     cc = np.asarray(arr['cc'], dtype=bool)
     pdg_field = 'pdg_vert' if vertex else 'pdg'
@@ -715,7 +724,8 @@ def is_cc0pi_arr(arr, *, vertex=False):
     has_chpi = ak.any(apdg == 211, axis=1)
     has_pi0  = ak.any(apdg == 111, axis=1)
     no_pi = ~ak.to_numpy(has_chpi | has_pi0)
-    return cc & no_pi
+    is_mu_lep = np.abs(np.asarray(arr['PDGLep'])) == 13
+    return cc & no_pi & is_mu_lep
 
 
 def diff_enu_qe_arr(arr, *, vertex=False, scale_to_MeV=True):
@@ -766,7 +776,11 @@ def enu_had_arr(arr, *, vertex=False):
     enuhad_wo   = ak.to_numpy(arr['ELep']) + ak.to_numpy(ak.sum(add_wo,   axis=1))
     enuhad_with = ak.to_numpy(arr['ELep']) + ak.to_numpy(ak.sum(add_with, axis=1))
     Enu_true    = ak.to_numpy(arr['Enu_true'])
-    cc_mask     = np.asarray(arr['cc'], dtype=bool)
+    # Tighten cc to also require |PDGLep|==13 -- see is_cc0pi_arr for the
+    # rationale (~0.004% of CC events have NUISFLAT's ELep filled with an
+    # e± energy from a hard radiation product instead of the primary muon,
+    # which produces an unphysical +50..+3000 MeV bias tail).
+    cc_mask     = np.asarray(arr['cc'], dtype=bool) & (np.abs(np.asarray(arr['PDGLep'])) == 13)
     return (enuhad_wo - Enu_true)[cc_mask], (enuhad_with - Enu_true)[cc_mask], cc_mask
 
 

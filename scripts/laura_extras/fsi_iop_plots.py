@@ -258,7 +258,10 @@ def read_dune(path, mode):
     a = load_arrays(path, max_events=MAX_EVENTS)
     x_tpi = bias_arr(a, "had",   kind=mode, vertex=False)
     x_epi = bias_arr(a, "avail", kind=mode, vertex=False)
-    is_cc = np.asarray(a["cc"], dtype=bool)
+    # Must match the CC selection that bias_arr applies internally (cc &
+    # |PDGLep|==13) so w / mode_arr have the same length as x_tpi / x_epi.
+    is_cc = (np.asarray(a["cc"], dtype=bool)
+             & (np.abs(np.asarray(a["PDGLep"])) == 13))
     w = np.asarray(a["fScaleFactor"][is_cc])
     mode_arr = np.asarray(a["Mode"][is_cc])
     return x_tpi, x_epi, w, mode_arr

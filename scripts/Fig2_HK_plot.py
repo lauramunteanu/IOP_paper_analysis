@@ -45,11 +45,12 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=Fal
     c, _ = np.histogram(vals, bins=bins, weights=w)
     sub_counts[has_n] = c
 
-  # Ratio panel: each subset / total. Fill empty-total bins with 0 to keep
-  # the step lines continuous instead of breaking on NaN.
+  # Ratio panel: each subset / total. Strict division -- the two lines sum
+  # to 1 in every bin with at least one event; bins with total=0 give NaN
+  # and the step lines break there.
   for has_n, color in ((False, tol_teal), (True, tol_magenta)):
     ratio = np.divide(sub_counts[has_n], counts_total,
-                      out=np.zeros_like(counts_total, dtype=float),
+                      out=np.full_like(counts_total, np.nan, dtype=float),
                       where=counts_total > 0)
     ax_ratio.step(centers, ratio, where="mid", color=color, linewidth=1.4)
   ax_ratio.set_ylim(0, 1.05)

@@ -51,13 +51,13 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, mode, vertex=Fa
         c, _ = np.histogram(vals, bins=bins, weights=w)
         sub_counts[has_n] = c
 
-    # Ratio panel: each subset / total. Floor the denominator at 1% of the
-    # peak total so low-stat tail bins decay smoothly toward 0 instead of
-    # bouncing between 0 and 1 when only a handful of events land in a bin.
-    denom_floor = max(0.01 * float(counts_total.max()), 1e-30)
-    safe_total = np.maximum(counts_total, denom_floor)
+    # Ratio panel: each subset / total. Strict division -- the two lines sum
+    # to 1 in every bin with at least one event; bins with total=0 give NaN
+    # and the step lines break there.
     for has_n, color in ((False, tol_teal), (True, tol_magenta)):
-        ratio = sub_counts[has_n] / safe_total
+        ratio = np.divide(sub_counts[has_n], counts_total,
+                          out=np.full_like(counts_total, np.nan, dtype=float),
+                          where=counts_total > 0)
         ax_ratio.step(centers, ratio, where="mid", color=color, linewidth=1.4)
     ax_ratio.set_ylim(0, 1.05)
     ax_ratio.set_ylabel("fraction\nof total")
