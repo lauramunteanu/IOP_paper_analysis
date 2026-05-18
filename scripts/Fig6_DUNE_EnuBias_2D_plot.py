@@ -2,17 +2,22 @@ from FlatTreeMod import *
 from matplotlib.colors import LogNorm
 ROOT.gROOT.SetBatch(True)
 
-# Shared z-scale across every Fig6 panel — the per-panel colorbar is dropped
-# and the standalone colorbar PDF (make_Fig6_colorbar.py) becomes the
-# common z-axis in the LaTeX subfigure environment.
+# Two separate z-scales (one per bias mode), because the rel-mode panels'
+# finer y-binning relative to their y-range gives a peak per-cell probability
+# several × lower than the abs panels -- a single shared vmax would leave
+# the rel plots washed out. The two standalone colorbars are written by
+# make_Fig6_colorbar.py.
 Z_CMAP = "RdPu"
-Z_VMAX = 0.3
+Z_VMAX_BY_MODE = {"abs": 0.3, "rel": 0.15}
+# Back-compat alias so legacy callers (make_Fig6_colorbar before the mode
+# split) still resolve a value.
+Z_VMAX = Z_VMAX_BY_MODE["abs"]
 Z_VMIN = Z_VMAX * 1e-4
 
 # Per-mode y-axis bin specs. x-axis (Enu_true) stays in MeV in both modes.
 YBIN_SPECS = {
     "abs": dict(bin_width=20.0,  lo=-1000.0,           hi=1000.0,            ylim=(-900.0, 300.0)),
-    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  ylim=(-0.5, 0.3)),
+    "rel": dict(bin_width=0.01,  lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  ylim=(-0.5, 0.3)),
 }
 
 
@@ -48,7 +53,7 @@ def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, mode, xbins):
       H_plot_for_log.T,
       cmap=cmap,
       shading="auto",
-      norm=LogNorm(vmin=Z_VMIN, vmax=Z_VMAX),
+      norm=LogNorm(vmin=Z_VMAX_BY_MODE[mode] * 1e-4, vmax=Z_VMAX_BY_MODE[mode]),
   )
 
   # Overlay per-Enu_true slice median / mean / 16-84% band.

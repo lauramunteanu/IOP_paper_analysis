@@ -11,8 +11,8 @@ COL_NOFSI = "#D55E00"  # COL_VERMILION — no FSI
 #   abs:  20 MeV bins over [-1000, +1000] MeV; visible window (-900, +300) MeV
 #   rel:  0.005 bins over REL_BIAS_XLIM (= (-0.9, +0.3) dimensionless)
 BIN_SPECS = {
-    "abs": dict(bin_width=20.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 300.0)),
-    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
+    "abs": dict(bin_width=20.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 500.0)),
+    "rel": dict(bin_width=0.02,  lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
 }
 
 

@@ -9,7 +9,7 @@ COL_NOFSI = "#D55E00"  # COL_VERMILION — no FSI
 # Per-mode bin spec for the DUNE FSI-vs-noFSI bias histogram.
 BIN_SPECS = {
     "abs": dict(bin_width=16.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 300.0)),
-    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
+    "rel": dict(bin_width=0.02,  lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
 }
 
 

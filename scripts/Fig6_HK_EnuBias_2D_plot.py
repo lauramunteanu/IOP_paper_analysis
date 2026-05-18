@@ -2,16 +2,17 @@ from FlatTreeMod import *
 from matplotlib.colors import LogNorm
 ROOT.gROOT.SetBatch(True)
 
-# Shared z-scale across every Fig6 panel — see Fig6_DUNE script header.
+# Two separate z-scales (one per bias mode) -- see Fig6_DUNE script header.
 Z_CMAP = "RdPu"
-Z_VMAX = 0.3
+Z_VMAX_BY_MODE = {"abs": 0.3, "rel": 0.15}
+Z_VMAX = Z_VMAX_BY_MODE["abs"]   # back-compat alias
 Z_VMIN = Z_VMAX * 1e-4
 
 # Per-mode y-axis bin specs for the 2-D heatmap. x-axis (Enu_true) stays in MeV
 # in both modes.
 YBIN_SPECS = {
-    "abs": dict(bin_width=16.0,  lo=-1000.0,           hi=1000.0,            ylim=(-900.0, 300.0)),
-    "rel": dict(bin_width=0.005, lo=-1.0,              hi=1.0,               ylim=(-1.0, 1.0)),
+    "abs": dict(bin_width=16.0,  lo=-1000.0,           hi=1000.0,            ylim=(-900.0, 500.0)),
+    "rel": dict(bin_width=0.01,  lo=-1.0,              hi=1.0,               ylim=(-1.0, 1.0)),
 }
 
 
@@ -46,7 +47,7 @@ def plot_Enu_bias(filename, isNub, nEvents, plot_name, mode, xbins):
       H_plot_for_log.T,
       cmap=cmap,
       shading="auto",
-      norm=LogNorm(vmin=Z_VMIN, vmax=Z_VMAX),
+      norm=LogNorm(vmin=Z_VMAX_BY_MODE[mode] * 1e-4, vmax=Z_VMAX_BY_MODE[mode]),
   )
 
   # Overlay per-Enu_true slice median / mean / 16-84% band so the energy

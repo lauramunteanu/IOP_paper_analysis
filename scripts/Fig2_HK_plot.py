@@ -4,8 +4,8 @@ ROOT.gROOT.SetBatch(True)
 
 # Per-mode bin spec for the HK CC0pi bias histogram (with Mode breakdown).
 BIN_SPECS = {
-    "abs": dict(bin_width=10.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 300.0)),
-    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
+    "abs": dict(bin_width=10.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 500.0)),
+    "rel": dict(bin_width=0.02,  lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
 }
 
 
@@ -63,7 +63,7 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=Fal
       Line2D([0], [0], color=tol_teal,    lw=1.4, label="No neutrons"),
       Line2D([0], [0], color=tol_magenta, lw=1.4, label="With neutrons"),
   ]
-  ax.legend(handles=legend_handles, loc='upper left', fontsize=13)
+  ax.legend(handles=legend_handles, loc='upper left', fontsize=10)
   plt.setp(ax.get_xticklabels(), visible=False)
 
   ax_ratio.set_xlim(*spec["xlim"])
