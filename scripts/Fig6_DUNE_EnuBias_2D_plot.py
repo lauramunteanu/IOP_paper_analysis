@@ -12,7 +12,7 @@ Z_VMIN = Z_VMAX * 1e-4
 # Per-mode y-axis bin specs. x-axis (Enu_true) stays in MeV in both modes.
 YBIN_SPECS = {
     "abs": dict(bin_width=20.0,  lo=-1000.0,           hi=1000.0,            ylim=(-900.0, 300.0)),
-    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  ylim=REL_BIAS_XLIM),
+    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  ylim=(-0.5, 0.3)),
 }
 
 

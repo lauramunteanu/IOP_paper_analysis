@@ -101,6 +101,11 @@ def _draw_enu_hist(ax, x_GeV, w, hist_range, label, color):
 def plot_one_page(pdf, *, cat_label, flav, obs_key, var_label, color, source_path, mode):
     """Three-panel validation page: Enu_true, Enu_reco, bias stacked by |Mode|."""
     nbins, hrange = hist_params_for(obs_key, mode)
+    # Validation override: zoom the DUNE rel-bias panels into (-1, 0.1) so
+    # the body of the distribution fills the panel; tails outside the range
+    # land in the over/underflow bins of the histogram and are not shown.
+    if mode == "rel" and obs_key in ("dune_epi", "dune_tpi"):
+        hrange = (-1.0, 0.1)
 
     fig = plt.figure(figsize=(8.0, 7.0))
     gs = fig.add_gridspec(2, 2, height_ratios=[1, 1.6], hspace=0.42, wspace=0.30)
