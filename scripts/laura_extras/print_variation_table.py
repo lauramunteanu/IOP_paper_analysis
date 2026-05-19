@@ -411,14 +411,129 @@ def emit_table(mode, rows, out_path):
     return content
 
 
+# Combined-table caption mentions both threshold conventions in one breath.
+_CAPTION_COMBINED = (
+    r"The shift in the mean and median neutrino energy estimation bias due to "
+    r"different FSI variations for the Hyper-K and DUNE neutrino and "
+    r"antineutrino cases. The top half reports the absolute shift in MeV, and "
+    r"the bottom half the same shift expressed as a fraction of "
+    r"$E_\nu^{\rm true}$ (in percent). The numbers reported for the INC model "
+    r"variation are derived from the two INC models that give the largest "
+    r"spread in the mean. Red boxes indicate that the variation is larger "
+    r"than 5\,MeV / 15\,MeV (absolute, Hyper-K and DUNE respectively) or "
+    r"$0.5\%$ (relative), which is broadly indicative of how well the "
+    r"neutrino energy reconstruction scale must be controlled (see "
+    r"\autoref{sec:enurec}). ``Nuc. Pot.'' stands for the nuclear potential "
+    r"considered in \autoref{subsec:beyondcasc}, for which the table reports "
+    r"a shift derived considering only CCQE interactions."
+)
+
+
+def _emit_data_rows(lines, by_key, mode):
+    """Emit the 6 data rows (2 flavours × 3 observables) for one bias mode."""
+    thresh_by_exp = THRESH_BY_MODE[mode]
+    for flav_idx, flav in enumerate(["numu", "numubar"]):
+        if flav_idx > 0:
+            lines.append(r"\midrule")
+        for obs_idx, obs_key in enumerate(OBS_ORDER):
+            if obs_idx == 0:
+                flav_cell = (rf"\multirow{{{len(OBS_ORDER)}}}{{*}}"
+                             rf"{{\rotatebox[origin=c]{{90}}{{\textbf{{{FLAV_LATEX[flav]}}}}}}}")
+            else:
+                flav_cell = ""
+            obs_cell = OBS_LABELS_LATEX[obs_key]
+            thresh = thresh_by_exp[EXP_BY_OBS[obs_key]]
+            cells = [flav_cell, obs_cell]
+            for cat_label, _ in CAT_HEADERS:
+                if cat_label.startswith("EDRMF") and flav == "numubar":
+                    cells.extend(["", ""])
+                    continue
+                med, mean = by_key.get((cat_label, flav, obs_key), (None, None))
+                cells.append(fmt(med, thresh, mode))
+                cells.append(fmt(mean, thresh, mode))
+            lines.append(" & ".join(cells) + r" \\")
+
+
+def emit_combined_table(rows_abs, rows_rel, out_path):
+    """Build a single LaTeX table holding both the abs and rel variation
+    rows (12 data rows total) and write it to out_path.
+
+    Layout: shared header (no units row, since units differ per section),
+    then a ``Absolute bias [MeV]'' section header spanning the full width,
+    then the 6 abs rows, then a ``Relative bias [\\%]'' section header,
+    then the 6 rel rows.
+    """
+    by_key_abs = {(r[0], r[1], r[2]): (r[3], r[4]) for r in rows_abs}
+    by_key_rel = {(r[0], r[1], r[2]): (r[3], r[4]) for r in rows_rel}
+
+    n_cat = len(CAT_HEADERS)
+    n_cols = 2 + 2 * n_cat  # 12
+
+    lines = []
+    lines.append(r"% Combined variation table (abs + rel) -- requires:")
+    lines.append(r"%   \usepackage{booktabs}")
+    lines.append(r"%   \usepackage{multirow}")
+    lines.append(r"%   \usepackage[table]{xcolor}")
+    lines.append(r"%   \usepackage{graphicx}   % for \rotatebox")
+    lines.append(r"%   \usepackage{hyperref}   % for \autoref in caption")
+    lines.append("")
+    lines.append(r"\begin{table}[tb]")
+    lines.append(r"\centering")
+    lines.append(r"\scriptsize")
+    lines.append(r"\setlength{\tabcolsep}{4pt}")
+    lines.append(r"\renewcommand{\arraystretch}{1.15}")
+    col_spec = "@{}c l " + " ".join("r r" for _ in range(n_cat)) + "@{}"
+    lines.append(rf"\begin{{tabular}}{{{col_spec}}}")
+    lines.append(r"\toprule")
+    hdr_top = [r"\textbf{Flavour}", r"\textbf{Observable}"]
+    for _, h in CAT_HEADERS:
+        hdr_top.append(rf"\multicolumn{{2}}{{c}}{{\textbf{{{h}}}}}")
+    lines.append(" & ".join(hdr_top) + r" \\")
+    cmid_parts = []
+    for i in range(n_cat):
+        c1 = 3 + 2 * i
+        c2 = c1 + 1
+        cmid_parts.append(rf"\cmidrule(lr){{{c1}-{c2}}}")
+    lines.append("".join(cmid_parts))
+    hdr_sub = ["", ""]
+    for _ in CAT_HEADERS:
+        hdr_sub.extend(["median", "mean"])
+    lines.append(" & ".join(hdr_sub) + r" \\")
+    lines.append(r"\midrule")
+
+    # ---- Absolute section ----
+    lines.append(rf"\multicolumn{{{n_cols}}}{{c}}{{\textbf{{Absolute bias [MeV]}}}} \\")
+    lines.append(r"\midrule")
+    _emit_data_rows(lines, by_key_abs, "abs")
+
+    # ---- Relative section ----
+    lines.append(r"\midrule")
+    lines.append(rf"\multicolumn{{{n_cols}}}{{c}}{{\textbf{{Relative bias [\%]}}}} \\")
+    lines.append(r"\midrule")
+    _emit_data_rows(lines, by_key_rel, "rel")
+
+    lines.append(r"\bottomrule")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\normalsize")
+    lines.append(rf"\caption{{{_CAPTION_COMBINED}}}")
+    lines.append(r"\label{tab:FSIVar_combined}")
+    lines.append(r"\end{table}")
+
+    content = "\n".join(lines) + "\n"
+    with open(out_path, "w") as f:
+        f.write(content)
+    return content
+
+
 # ---------------------------------------------------------------------------
-# Run both modes and emit two .tex files
+# Run both modes and emit two .tex files (+ a combined one)
 # ---------------------------------------------------------------------------
 _root = os.environ.get("OUTPUT_PLOTS_DIR")
 OUT_DIR = (os.path.join(_root, "BW_summaries") if _root
            else "/eos/home-l/lamuntea/FSI_IOP_paper/run_genie_bw")
 os.makedirs(OUT_DIR, exist_ok=True)
 
+_all_rows = {}
 for mode in ("abs", "rel"):
     print(f"\n##### mode = {mode} #####")
     print("% (loading data; first run may take several minutes)")
@@ -428,8 +543,14 @@ for mode in ("abs", "rel"):
             for obs_key in ("hk_qe", "dune_epi", "dune_tpi"):
                 med, mean = category_row(variants, path_fn, flav, obs_key, mode)
                 rows.append((cat_label, flav, obs_key, med, mean))
+    _all_rows[mode] = rows
 
     out_path = os.path.join(OUT_DIR, f"variation_table_{mode}.tex")
     content = emit_table(mode, rows, out_path)
     print(content)
     print(f"% wrote {out_path}")
+
+# Combined table: abs section on top of rel section, single LaTeX file.
+_combined_path = os.path.join(OUT_DIR, "variation_table_combined.tex")
+emit_combined_table(_all_rows["abs"], _all_rows["rel"], _combined_path)
+print(f"\n% wrote {_combined_path}")

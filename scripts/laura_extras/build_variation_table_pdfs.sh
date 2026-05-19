@@ -68,4 +68,5 @@ EOF
 echo "compiling variation tables in $OUT_DIR ..."
 build_one abs
 build_one rel
+build_one combined
 echo "all done."
