@@ -1003,13 +1003,15 @@ ENERGY_SHIFT_METHOD = 'taylor'
 
 
 def plot_osc_shift_e(ax, ax_ratio, *, shift, label, color, counts_nom, bins,
-                     x_unshifted, weights, method=None, lw=1.5, ls='-'):
+                     x_unshifted, weights, method=None, lw=1.5, ls='--'):
     """Plot an energy-shifted variant on (ax, ax_ratio).
 
     Top panel: a curve at the shifted energy values.
     Ratio panel: H(E - shift) / H(E).
 
     method is one of 'taylor' / 'explicit'; default = ENERGY_SHIFT_METHOD.
+    The default linestyle is dashed so the energy-shift variants are
+    visually distinct from the (solid) oscillation-parameter variants.
     """
     if method is None:
         method = ENERGY_SHIFT_METHOD

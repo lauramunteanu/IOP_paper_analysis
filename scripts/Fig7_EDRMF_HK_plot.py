@@ -1,10 +1,15 @@
 from FlatTreeMod import *
 ROOT.gROOT.SetBatch(True)
 
-# Per-mode bin spec for the HK EDRMF/RPWIA bias histogram.
+# Match the laura_extras BW Fig12 palette for the EDRMF / RPWIA distinction.
+COL_EDRMF = "#444444"  # COL_GREY
+COL_RPWIA = "#E69F00"  # COL_ORANGE
+
+# Per-mode bin spec for the HK EDRMF/RPWIA bias histogram. abs xlim (-900, 500)
+# matches the wider HK abs range used by Fig 2 / Fig 3 / Fig 6.
 BIN_SPECS = {
-    "abs": dict(bin_width=20.0,  lo=-900.0,            hi=300.0,             xlim=(-900.0, 300.0)),
-    "rel": dict(bin_width=0.005, lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
+    "abs": dict(bin_width=20.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 500.0)),
+    "rel": dict(bin_width=0.02,  lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
 }
 
 
@@ -19,9 +24,9 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, mode, nominal=Fal
   weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(diff_sel)
 
   if label == "ED-RMF":
-    color = dark_red
+    color = COL_EDRMF
   elif label == "RPWIA":
-    color = dark_blue
+    color = COL_RPWIA
   else:
     color = "black"
 
@@ -41,7 +46,7 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, mode, nominal=Fal
   counts, edges = np.histogram(diff_sel, weights=weights, bins=bins)
 
   if nominal:
-      ax_ratio.hlines(1, bins[0], bins[-1], linestyle='--', color=dark_blue)
+      ax_ratio.hlines(1, bins[0], bins[-1], linestyle='--', color='black')
       return counts
   else:
       ratio = counts / counts_nom
@@ -77,14 +82,14 @@ for mode in ("abs", "rel"):
 
     spec = BIN_SPECS[mode]
     ax.vlines(x=0, ymin=0, ymax=ax.get_ylim()[1], color='black', linestyles='--')
-    ax.legend(custom_lines, labels, loc='best')
+    ax.legend(custom_lines, labels, loc='upper left', fontsize=13)
     ax.set_xlim(*spec["xlim"])
     ax_ratio.set_xlim(*spec["xlim"])
     ax.set_ylabel(bias_ylabel(mode))
 
     ax_ratio.set_xlabel(bias_xlabel("qe", mode))
     ax_ratio.set_ylabel("ED-RMF/RPWIA")
-    ax_ratio.set_ylim(0.5, 1.5)
+    auto_ratio_ylim(ax_ratio, counts_rpwia)
 
     plt.savefig(outpath("Fig7_plots", f"Fig7_HK_EnuRecoFSIBias_EDRMF_numu_{mode}.pdf"))
     plt.close(fig)

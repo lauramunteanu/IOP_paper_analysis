@@ -33,6 +33,12 @@ def line(color, label, ls='-', lw=1.6):
     return Line2D([0], [0], color=color, lw=lw, linestyle=ls, label=label)
 
 
+def shift_line(color, label):
+    """Energy-shift legend entry -- dashed to match the dashed shift curves
+    drawn by FlatTreeMod.plot_osc_shift_e in the corresponding spectra."""
+    return line(color, label, ls='--')
+
+
 def hk_dm32():
     nominal = line(tol_dark, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$")
     osc = [
@@ -40,8 +46,8 @@ def hk_dm32():
         line(osc_dec_color, r"$\Delta m^{2}_{32} - 0.4\%$"),
     ]
     shifts = [
-        line(pastel_red,  r"$E_{\nu}^{\rm QE} + 5$ MeV"),
-        line(pastel_blue, r"$E_{\nu}^{\rm QE} - 5$ MeV"),
+        shift_line(pastel_red,  r"$E_{\nu}^{\rm QE} + 5$ MeV"),
+        shift_line(pastel_blue, r"$E_{\nu}^{\rm QE} - 5$ MeV"),
     ]
     return nominal, osc, shifts
 
@@ -53,8 +59,8 @@ def hk_dcp():
         line(osc_dec_color, r"$\delta_{CP} - 20^{\circ}$"),
     ]
     shifts = [
-        line(pastel_red,  r"$E_{\nu}^{\rm QE} + 5$ MeV"),
-        line(pastel_blue, r"$E_{\nu}^{\rm QE} - 5$ MeV"),
+        shift_line(pastel_red,  r"$E_{\nu}^{\rm QE} + 5$ MeV"),
+        shift_line(pastel_blue, r"$E_{\nu}^{\rm QE} - 5$ MeV"),
     ]
     return nominal, osc, shifts
 
@@ -66,8 +72,8 @@ def dune_dm32():
         line(osc_dec_color, r"$\Delta m^{2}_{32} - 0.4\%$"),
     ]
     shifts = [
-        line(pastel_red,  r"$E_{\nu}^{\rm had} + 15$ MeV"),
-        line(pastel_blue, r"$E_{\nu}^{\rm had} - 15$ MeV"),
+        shift_line(pastel_red,  r"$E_{\nu}^{\rm had} + 15$ MeV"),
+        shift_line(pastel_blue, r"$E_{\nu}^{\rm had} - 15$ MeV"),
     ]
     return nominal, osc, shifts
 
@@ -79,8 +85,8 @@ def dune_dcp():
         line(osc_dec_color, r"$\delta_{CP} - 20^{\circ}$"),
     ]
     shifts = [
-        line(pastel_red,  r"$E_{\nu}^{\rm had} + 15$ MeV"),
-        line(pastel_blue, r"$E_{\nu}^{\rm had} - 15$ MeV"),
+        shift_line(pastel_red,  r"$E_{\nu}^{\rm had} + 15$ MeV"),
+        shift_line(pastel_blue, r"$E_{\nu}^{\rm had} - 15$ MeV"),
     ]
     return nominal, osc, shifts
 
@@ -89,8 +95,8 @@ def dune_dcp():
 def hk_dm32_relshift():
     nominal, osc, _ = hk_dm32()
     shifts = [
-        line(pastel_red,  r"$E_{\nu}^{\rm QE} + 0.5\%\, E_{\nu}^{\rm true}$"),
-        line(pastel_blue, r"$E_{\nu}^{\rm QE} - 0.5\%\, E_{\nu}^{\rm true}$"),
+        shift_line(pastel_red,  r"$E_{\nu}^{\rm QE} + 0.5\%\, E_{\nu}^{\rm true}$"),
+        shift_line(pastel_blue, r"$E_{\nu}^{\rm QE} - 0.5\%\, E_{\nu}^{\rm true}$"),
     ]
     return nominal, osc, shifts
 
@@ -98,8 +104,8 @@ def hk_dm32_relshift():
 def hk_dcp_relshift():
     nominal, osc, _ = hk_dcp()
     shifts = [
-        line(pastel_red,  r"$E_{\nu}^{\rm QE} + 0.5\%\, E_{\nu}^{\rm true}$"),
-        line(pastel_blue, r"$E_{\nu}^{\rm QE} - 0.5\%\, E_{\nu}^{\rm true}$"),
+        shift_line(pastel_red,  r"$E_{\nu}^{\rm QE} + 0.5\%\, E_{\nu}^{\rm true}$"),
+        shift_line(pastel_blue, r"$E_{\nu}^{\rm QE} - 0.5\%\, E_{\nu}^{\rm true}$"),
     ]
     return nominal, osc, shifts
 
@@ -107,8 +113,8 @@ def hk_dcp_relshift():
 def dune_dm32_relshift():
     nominal, osc, _ = dune_dm32()
     shifts = [
-        line(pastel_red,  r"$E_{\nu}^{\rm had} + 0.5\%\, E_{\nu}^{\rm true}$"),
-        line(pastel_blue, r"$E_{\nu}^{\rm had} - 0.5\%\, E_{\nu}^{\rm true}$"),
+        shift_line(pastel_red,  r"$E_{\nu}^{\rm had} + 0.5\%\, E_{\nu}^{\rm true}$"),
+        shift_line(pastel_blue, r"$E_{\nu}^{\rm had} - 0.5\%\, E_{\nu}^{\rm true}$"),
     ]
     return nominal, osc, shifts
 
@@ -116,8 +122,8 @@ def dune_dm32_relshift():
 def dune_dcp_relshift():
     nominal, osc, _ = dune_dcp()
     shifts = [
-        line(pastel_red,  r"$E_{\nu}^{\rm had} + 0.5\%\, E_{\nu}^{\rm true}$"),
-        line(pastel_blue, r"$E_{\nu}^{\rm had} - 0.5\%\, E_{\nu}^{\rm true}$"),
+        shift_line(pastel_red,  r"$E_{\nu}^{\rm had} + 0.5\%\, E_{\nu}^{\rm true}$"),
+        shift_line(pastel_blue, r"$E_{\nu}^{\rm had} - 0.5\%\, E_{\nu}^{\rm true}$"),
     ]
     return nominal, osc, shifts
 
