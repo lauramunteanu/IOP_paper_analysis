@@ -40,9 +40,16 @@ build_one() {
 \usepackage{multirow}
 \usepackage[table]{xcolor}
 \usepackage{graphicx}
+% hyperref is needed because the table caption uses \autoref. The paper-side
+% references (sec:enurec, subsec:beyondcasc) won't resolve here, so we point
+% the placeholders at something harmless to avoid `??' clutter in the PDF.
+\usepackage{hyperref}
+\hypersetup{hidelinks}
+% hyperref already defines \autoref; \providecommand is a no-op there. Use
+% \AtBeginDocument so the override fires after hyperref's setup runs.
+\AtBeginDocument{\renewcommand{\autoref}[1]{the relevant section}}
 \pagestyle{empty}
 \begin{document}
-\noindent
 EOF
     echo "\\input{variation_table_${mode}.tex}" >> "$wrapper"
     echo "\\end{document}" >> "$wrapper"
@@ -53,7 +60,8 @@ EOF
     # Clean up auxiliary files but keep the standalone .tex wrapper for
     # reproducibility.
     rm -f "$OUT_DIR/variation_table_${mode}.aux" \
-          "$OUT_DIR/variation_table_${mode}.log"
+          "$OUT_DIR/variation_table_${mode}.log" \
+          "$OUT_DIR/variation_table_${mode}.out"
     echo "  done -> $OUT_DIR/variation_table_${mode}.pdf"
 }
 

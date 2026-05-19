@@ -119,7 +119,7 @@ NEUT_RPWIA = {
 }
 
 OBS_LABELS_LATEX = {
-    "hk_qe":    r"HK $E_{\nu}^{\mathrm{QE}}$",
+    "hk_qe":    r"Hyper-K $E_{\nu}^{\mathrm{QE}}$",
     "dune_epi": r"DUNE $E_{\nu}^{\mathrm{avail}}$",
     "dune_tpi": r"DUNE $E_{\nu}^{\mathrm{had}}$",
 }
@@ -275,19 +275,20 @@ def category_row(variants, path_fn, flav, obs_key, mode):
 # ---------------------------------------------------------------------------
 # LaTeX table emission
 # ---------------------------------------------------------------------------
+# First column = lookup key matching CATEGORIES; second column = header text.
 CAT_HEADERS = [
     (r"FSI vs no FSI",                    r"FSI / no FSI"),
-    (r"$\pi_{\mathrm{abs}}$ $\pm 31\%$",   r"$\pi_{\mathrm{abs}}$"),
-    (r"NN MFP $\pm 30\%$",                 r"NN MFP"),
-    (r"GENIE cascade (10a-10d)",           r"FSI model"),
-    (r"EDRMF vs RPWIA",                    r"EDRMF"),
+    (r"$\pi_{\mathrm{abs}}$ $\pm 31\%$",  r"$\pi_{\mathrm{abs}}\pm31\%$"),
+    (r"NN MFP $\pm 30\%$",                r"NN MFP $\pm30\%$"),
+    (r"GENIE cascade (10a-10d)",          r"INC model var."),
+    (r"EDRMF vs RPWIA",                   r"Nuc. Pot. on/off"),
 ]
 OBS_ORDER = ["hk_qe", "dune_epi", "dune_tpi"]
 
 
 def fmt(v, thresh, mode):
     """Format one cell value in display units (rel: percent; abs: MeV) and
-    bold-face the number if its rounded display value is >= the threshold."""
+    shade the cell red if its rounded display value is >= the threshold."""
     if v is None or not np.isfinite(v):
         return "--"
     disp = v * 100.0 if mode == "rel" else v
@@ -295,11 +296,47 @@ def fmt(v, thresh, mode):
     # 0.5 always crosses the 0.5% threshold regardless of FP noise.
     flagged = round(disp, 1) >= round(thresh, 1)
     text = f"{disp:.1f}"
-    return rf"\textbf{{{text}}}" if flagged else text
+    return rf"\cellcolor{{red!12}}{text}" if flagged else text
+
+
+# Captions for the two tables. Both use `Hyper-K' / `DUNE' / `INC model var.'
+# / `Nuc. Pot.' terminology in the paper text. The abs caption mentions the
+# 5 / 15 MeV thresholds; the rel caption swaps that for the 0.5% common one.
+_CAPTION_ABS = (
+    r"The shift in the mean and median neutrino energy estimation bias due to "
+    r"different FSI variations for the Hyper-K and DUNE neutrino and antineutrino "
+    r"cases. The numbers reported for the INC model variation is derived from "
+    r"the two INC models that give the largest spread in the mean. Red boxes "
+    r"indicate that the variation is larger than 5 MeV or 15 MeV for the "
+    r"Hyper-K and DUNE cases respectively, which is broadly indicative of how "
+    r"well the neutrino energy reconstruction scale must be controlled (see "
+    r"\autoref{sec:enurec}). ``Nuc. Pot.'' stands for the nuclear potential "
+    r"considered in \autoref{subsec:beyondcasc}, for which the table reports a "
+    r"shift derived considering only CCQE interactions."
+)
+_CAPTION_REL = (
+    r"The shift in the mean and median neutrino energy estimation bias "
+    r"(expressed as a fraction of $E_\nu^{\rm true}$, in percent) due to "
+    r"different FSI variations for the Hyper-K and DUNE neutrino and antineutrino "
+    r"cases. The numbers reported for the INC model variation is derived from "
+    r"the two INC models that give the largest spread in the mean. Red boxes "
+    r"indicate that the variation is larger than $0.5\%$, which is broadly "
+    r"indicative of how well the neutrino energy reconstruction scale must be "
+    r"controlled (see \autoref{sec:enurec}). ``Nuc. Pot.'' stands for the "
+    r"nuclear potential considered in \autoref{subsec:beyondcasc}, for which "
+    r"the table reports a shift derived considering only CCQE interactions."
+)
+CAPTION_BY_MODE = {"abs": _CAPTION_ABS, "rel": _CAPTION_REL}
+LABEL_BY_MODE   = {"abs": r"tab:FSIVar",  "rel": r"tab:FSIVar_rel"}
 
 
 def emit_table(mode, rows, out_path):
-    """Build the LaTeX table for one bias mode and write it to out_path."""
+    """Build the LaTeX table for one bias mode and write it to out_path.
+
+    The emitted .tex is a full ``\\begin{table}[tb]`` block wrapping the
+    tabular -- ready to drop into the paper via ``\\input{}`` -- with the
+    caption / label / centering / size matching the FSIVar template.
+    """
     units = UNITS_BY_MODE[mode]
     thresh_by_exp = THRESH_BY_MODE[mode]
 
@@ -309,11 +346,16 @@ def emit_table(mode, rows, out_path):
     lines.append(rf"% Variation table ({mode}) -- requires:")
     lines.append(r"%   \usepackage{booktabs}")
     lines.append(r"%   \usepackage{multirow}")
+    lines.append(r"%   \usepackage[table]{xcolor}")
     lines.append(r"%   \usepackage{graphicx}   % for \rotatebox")
+    lines.append(r"%   \usepackage{hyperref}   % for \autoref in caption")
     lines.append("")
-    n_cat = len(CAT_HEADERS)
+    lines.append(r"\begin{table}[tb]")
+    lines.append(r"\centering")
+    lines.append(r"\scriptsize")
     lines.append(r"\setlength{\tabcolsep}{4pt}")
     lines.append(r"\renewcommand{\arraystretch}{1.15}")
+    n_cat = len(CAT_HEADERS)
     col_spec = "@{}c l " + " ".join("r r" for _ in range(n_cat)) + "@{}"
     lines.append(rf"\begin{{tabular}}{{{col_spec}}}")
     lines.append(r"\toprule")
@@ -358,6 +400,10 @@ def emit_table(mode, rows, out_path):
 
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
+    lines.append(r"\normalsize")
+    lines.append(rf"\caption{{{CAPTION_BY_MODE[mode]}}}")
+    lines.append(rf"\label{{{LABEL_BY_MODE[mode]}}}")
+    lines.append(r"\end{table}")
 
     content = "\n".join(lines) + "\n"
     with open(out_path, "w") as f:
