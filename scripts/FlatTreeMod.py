@@ -345,22 +345,29 @@ def save_spectra_legend(nominal_handle, osc_handles, shift_handles,
     """3-column legend for the Fig1 spectrum plots. Column 1 = the single
     'Nominal ...' entry centered vertically; column 2 = the 2 osc-parameter
     variants stacked; column 3 = the 2 energy-shift variants stacked.
-    No frame. Centered around (0.20 / 0.55 / 0.85) figure-x."""
+    No frame. Centered around (0.20 / 0.55 / 0.85) figure-x. ``bbox_inches=
+    "tight"`` on savefig crops the canvas to actual legend extent so the
+    LaTeX subfigure that includes this PDF gets no extra horizontal padding."""
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
     ax.set_axis_off()
     leg1 = ax.legend(handles=[nominal_handle], loc="center",
                      bbox_to_anchor=(0.20, 0.5),
-                     frameon=False, handletextpad=0.5)
+                     frameon=False, handletextpad=0.5,
+                     borderpad=0.1, borderaxespad=0.0)
     ax.add_artist(leg1)
     leg2 = ax.legend(handles=osc_handles, loc="center",
                      bbox_to_anchor=(0.55, 0.5), ncol=1,
-                     frameon=False, handletextpad=0.5)
+                     frameon=False, handletextpad=0.5,
+                     borderpad=0.1, borderaxespad=0.0)
     ax.add_artist(leg2)
     ax.legend(handles=shift_handles, loc="center",
               bbox_to_anchor=(0.85, 0.5), ncol=1,
-              frameon=False, handletextpad=0.5)
-    plt.savefig(f"{out_dir}/{fname}.png", dpi=200)
-    plt.savefig(f"{out_dir}/{fname}.pdf")
+              frameon=False, handletextpad=0.5,
+              borderpad=0.1, borderaxespad=0.0)
+    plt.savefig(f"{out_dir}/{fname}.png", dpi=200,
+                bbox_inches="tight", pad_inches=0.02)
+    plt.savefig(f"{out_dir}/{fname}.pdf",
+                bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
     Print(f"saved {out_dir}/{fname}.pdf")
 
