@@ -279,13 +279,17 @@ PAPER_BINNING = dict(
 # Sizing the figure at creation time (instead of letting LaTeX shrink an
 # oversized canvas) keeps label pt size honest on the printed page.
 # =============================================================================
+# Aspect ratios deliberately leaner (~20% shorter than the prior set) so
+# the figures pack more efficiently when placed in LaTeX subfigure grids
+# at width=\linewidth -- previously the tall single_ratio canvas left
+# whitespace above/below each subfigure when three were placed side by side.
 FIG_SIZES = {
-    'single':         (3.5, 2.6),    # one panel, single column
-    'single_ratio':   (3.5, 4.0),    # main + ratio strip, single column (Fig3/4/7)
-    'double':         (7.0, 3.0),    # one wide panel, double column
-    'double_ratio':   (7.0, 4.5),    # main + ratio, double column
-    'double_stacked': (7.0, 5.0),    # two stacked panels (Fig5 noFSI/FSI)
-    'box':            (5.0, 7.0),    # tall, narrow box-and-whisker comparison
+    'single':         (3.5, 2.2),    # one panel, single column
+    'single_ratio':   (3.5, 3.2),    # main + ratio strip, single column (Fig3/4/7)
+    'double':         (7.0, 2.6),    # one wide panel, double column
+    'double_ratio':   (7.0, 3.7),    # main + ratio, double column
+    'double_stacked': (7.0, 4.2),    # two stacked panels (Fig5 noFSI/FSI)
+    'box':            (5.0, 7.0),    # tall, narrow box-and-whisker comparison (unchanged)
 }
 
 
