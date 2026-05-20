@@ -326,16 +326,23 @@ def save_strip_legend(handles, out_dir, fname, fig_w=7.0, fig_h=0.5,
     """Save a thin horizontal-strip legend, no title. Designed to drop above
     a side-by-side pair of subfigures in a LaTeX figure with
     \\includegraphics[width=\\linewidth]{out_dir/fname.pdf}.
-    Default frameon=False (no border). Writes both .png (200 dpi) and .pdf."""
+    Default frameon=False (no border). Writes both .png (200 dpi) and .pdf.
+
+    ``bbox_inches="tight"`` crops the canvas to the actual legend extent so
+    the LaTeX subfigure that includes this PDF gets no extra horizontal
+    padding (otherwise the wide ``fig_w`` would leave whitespace on both
+    sides of the centred legend)."""
     if ncol is None:
         ncol = len(handles)
     fig = plt.figure(figsize=(fig_w, fig_h))
     fig.legend(handles=handles, loc="center", ncol=ncol,
                frameon=frameon, framealpha=1.0,
                handletextpad=0.5, columnspacing=2.0,
-               borderpad=0.4, borderaxespad=0.0)
-    plt.savefig(f"{out_dir}/{fname}.png", dpi=200)
-    plt.savefig(f"{out_dir}/{fname}.pdf")
+               borderpad=0.1, borderaxespad=0.0)
+    plt.savefig(f"{out_dir}/{fname}.png", dpi=200,
+                bbox_inches="tight", pad_inches=0.02)
+    plt.savefig(f"{out_dir}/{fname}.pdf",
+                bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
     Print(f"saved {out_dir}/{fname}.pdf")
 
