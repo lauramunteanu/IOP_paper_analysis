@@ -3,8 +3,10 @@ from collections import defaultdict
 ROOT.gROOT.SetBatch(True)
 
 # Per-mode bin spec for the HK CC0pi bias histogram (with Mode breakdown).
+# abs bin_width matches Fig 3 HK so the two figures share the same x-axis
+# granularity.
 BIN_SPECS = {
-    "abs": dict(bin_width=10.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 500.0)),
+    "abs": dict(bin_width=20.0,  lo=-1000.0,           hi=1000.0,            xlim=(-900.0, 500.0)),
     "rel": dict(bin_width=0.02,  lo=REL_BIAS_XLIM[0],  hi=REL_BIAS_XLIM[1],  xlim=REL_BIAS_XLIM),
 }
 
@@ -14,12 +16,16 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=Fal
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
   diff_sel = bias_arr(arr, "qe", kind=mode, vertex=vertex)
 
-  # neutron-content split on the same CC0pi selection as bias_arr uses.
+  # CCQE vs non-CCQE split on the same CC0pi selection as bias_arr uses.
+  # CCQE is the dominant signal channel at HK (~80% of CC0pi); the
+  # non-CCQE tail is mostly 2p2h and CC-RES events whose pion was absorbed
+  # via FSI -- splitting by Mode (rather than by final-state neutron
+  # content) makes that physics directly visible.
   sel = is_cc0pi_arr(arr, vertex=vertex)
-  _, pdg_arr, _, _, _, _ = particles_arr(arr, vertex=vertex)
-  has_neutron_all = ak.to_numpy(ak.any(abs(pdg_arr) == 2112, axis=1))
-  has_neutron = has_neutron_all[np.asarray(sel, dtype=bool)]
-  bias_by_n = {bool(b): diff_sel[has_neutron == b] for b in (False, True)}
+  modes_all = np.abs(np.asarray(arr['Mode']))
+  is_ccqe_all = (modes_all == 1)
+  is_ccqe = is_ccqe_all[np.asarray(sel, dtype=bool)]
+  bias_by_mode = {True: diff_sel[is_ccqe], False: diff_sel[~is_ccqe]}
 
   spec = BIN_SPECS[mode]
   bin_width = spec["bin_width"]
@@ -33,23 +39,23 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=Fal
           color=tol_dark, linewidth=1.8)
 
   sub_counts = {}
-  for has_n, color, lbl in ((False, tol_teal,    "No neutrons"),
-                            (True,  tol_magenta, "With neutrons")):
-    vals = bias_by_n[has_n]
+  for is_qe, color, lbl in ((True,  tol_teal,    "CCQE"),
+                            (False, tol_magenta, "non-CCQE")):
+    vals = bias_by_mode[is_qe]
     if len(vals) == 0:
-      sub_counts[has_n] = np.zeros_like(counts_total)
+      sub_counts[is_qe] = np.zeros_like(counts_total)
       continue
     w = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(vals)
     ax.hist(vals, bins=bins, histtype='step', weights=w,
             color=color, linewidth=1.4)
     c, _ = np.histogram(vals, bins=bins, weights=w)
-    sub_counts[has_n] = c
+    sub_counts[is_qe] = c
 
   # Ratio panel: each subset / total. Strict division -- the two lines sum
   # to 1 in every bin with at least one event; bins with total=0 give NaN
   # and the step lines break there.
-  for has_n, color in ((False, tol_teal), (True, tol_magenta)):
-    ratio = np.divide(sub_counts[has_n], counts_total,
+  for is_qe, color in ((True, tol_teal), (False, tol_magenta)):
+    ratio = np.divide(sub_counts[is_qe], counts_total,
                       out=np.full_like(counts_total, np.nan, dtype=float),
                       where=counts_total > 0)
     ax_ratio.step(centers, ratio, where="mid", color=color, linewidth=1.4)
@@ -60,8 +66,8 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=Fal
   ax.set_ylabel(bias_ylabel(mode))
   legend_handles = [
       Line2D([0], [0], color=tol_dark,    lw=1.8, label=r"Total CC0$\pi$"),
-      Line2D([0], [0], color=tol_teal,    lw=1.4, label="No neutrons"),
-      Line2D([0], [0], color=tol_magenta, lw=1.4, label="With neutrons"),
+      Line2D([0], [0], color=tol_teal,    lw=1.4, label="CCQE"),
+      Line2D([0], [0], color=tol_magenta, lw=1.4, label="non-CCQE"),
   ]
   ax.legend(handles=legend_handles, loc='upper left', fontsize=10)
   plt.setp(ax.get_xticklabels(), visible=False)
