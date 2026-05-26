@@ -156,16 +156,20 @@ else:
 pmns = ROOT.OscProb.PMNS_Fast()
 
 # ----------------------------------------
-# Set oscillation parameters (PDG-ish)
+# Set oscillation parameters: PDG 2025 review Table 14.7, top-left section
+# (Ref. [193] w/o SK-ATM & IC24, NO best-fit), δCP fixed to −π/2 by paper
+# convention. Angles in radians; mass-squared splittings in eV².
+#   sin²θ12 = 3.07e-1  → θ12 = 0.58784 rad (33.68°)
+#   sin²θ13 = 2.195e-2 → θ13 = 0.14870 rad ( 8.52°)
+#   sin²θ23 = 5.61e-1  → θ23 = 0.84649 rad (48.50°)
 # ----------------------------------------
-theta12 = 0.583
-theta13 = 0.149
-theta23 = 0.857
-# deltaCP = 3.44
+theta12 = 0.58784
+theta13 = 0.14870
+theta23 = 0.84649
 deltaCP = -np.pi/2
 
-dm21 = 7.41e-5
-dm32 = 2.437e-3
+dm21 = 7.49e-5
+dm32 = 2.459e-3
 
 pmns.SetMix(theta12, theta23, theta13, deltaCP)
 pmns.SetDeltaMsqrs(dm21, dm32)
@@ -200,6 +204,113 @@ def OscProb_mumu(E_in: float) -> float:
 
 def OscProb_mue(E_in: float) -> float:
     return pmns.Prob(1, 0, E_in, L)  # νμ → νe
+
+
+# ----------------------------------------
+# Vectorised per-event oscillation weights for use as histogram weights in
+# the bias / spectrum plots that currently don't apply oscillation. Resets
+# the global pmns object (path, mixing, mass-squared splittings) so callers
+# don't need to manage state.
+# ----------------------------------------
+_BASELINE_KM = {'HK': 295.0, 'DUNE': 1285.0}
+_EARTH_DENSITY = 2.8
+
+
+# Canonical flux histograms used to generate every NUISFLAT sample in this
+# paper — read once by `posc_flux_avg` to compute the flux-averaged osc
+# probability used as the dσ/dE scale-factor correction (see derivation in
+# Bias_level_study/validate_osc_fscalefactor.py).
+_FLUX_FILES = {
+    ('HK',   'FHC'): ('/eos/project-n/neutrino-generators/PublicFluxFiles/'
+                      't2kflux_2016_plus250kA.root',  'enu_sk_numu'),
+    ('HK',   'RHC'): ('/eos/project-n/neutrino-generators/PublicFluxFiles/'
+                      't2kflux_2016_minus250kA.root', 'enu_sk_numub'),
+    ('DUNE', 'FHC'): ('/eos/project-n/neutrino-generators/PublicFluxFiles/'
+                      'histos_g4lbne_v3r5p10_QGSP_BERT_OfficialEngDesignSept2021'
+                      '_neutrino_DUNEFD_fastmc.root',  'numu_flux'),
+    ('DUNE', 'RHC'): ('/eos/project-n/neutrino-generators/PublicFluxFiles/'
+                      'histos_g4lbne_v3r5p10_QGSP_BERT_OfficialEngDesignSept2021'
+                      '_antineutrino_DUNEFD_fastmc.root', 'numubar_flux'),
+}
+
+
+def _polarity_from_flav(flav):
+    """FHC (νμ source flux) for 'numu'/'nue'; RHC (ν̄μ source flux) for 'numubar'/'nuebar'."""
+    return 'RHC' if flav.endswith('bar') else 'FHC'
+
+
+_POSC_AVG_CACHE = {}
+
+
+def posc_flux_avg(exp, flav, lep_pdg=13):
+    """⟨P_osc⟩_Φ = ∫Φ(E)·P_osc(E) dE / ∫Φ(E) dE.
+
+    Source flux is the canonical generator flux for ``(exp, FHC/RHC)`` derived
+    from ``flav``. Oscillation channel is selected by ``lep_pdg``: 13 →
+    νμ→νμ survival (anti-ν for RHC samples); 11 → νμ→νe appearance.
+
+    Cached after first call per (exp, polarity, lep_pdg).
+    """
+    polarity = _polarity_from_flav(flav)
+    key = (exp, polarity, lep_pdg)
+    if key in _POSC_AVG_CACHE:
+        return _POSC_AVG_CACHE[key]
+
+    flux_path, hist_name = _FLUX_FILES[(exp, polarity)]
+    f = ROOT.TFile.Open(flux_path)
+    h = f.Get(hist_name)
+    nb = h.GetNbinsX()
+    centres_GeV = np.array([h.GetBinCenter(i + 1) for i in range(nb)], dtype=float)
+    contents    = np.array([h.GetBinContent(i + 1) for i in range(nb)], dtype=float)
+    f.Close()
+
+    L_use = _BASELINE_KM[exp]
+    pmns.SetPath(L_use, _EARTH_DENSITY)
+    pmns.SetMix(theta12, theta23, theta13, deltaCP)
+    pmns.SetDeltaMsqrs(dm21, dm32)
+    is_nubar = (polarity == 'RHC')
+    pmns.SetIsNuBar(is_nubar)
+    src, dst = (1, 1) if lep_pdg == 13 else (1, 0)
+    p_osc = np.array([pmns.Prob(src, dst, float(E), L_use) for E in centres_GeV])
+    pmns.SetIsNuBar(False)   # reset global state
+
+    avg = float((contents * p_osc).sum() / contents.sum())
+    _POSC_AVG_CACHE[key] = avg
+    return avg
+
+
+def _osc_weights(Enu_true_GeV, filename, exp, lep_pdg):
+    """Common machinery for osc_weights_mumu / osc_weights_mue. Sets pmns
+    state correctly for the (exp, ν vs ν̄, channel) of the sample."""
+    if exp is None:
+        if filename is None:
+            raise ValueError("either exp= or filename= must be supplied")
+        exp, flav = detect_exp_flav(filename)
+    else:
+        flav = detect_exp_flav(filename)[1] if filename else 'numu'
+    L_use = _BASELINE_KM[exp]
+    pmns.SetPath(L_use, _EARTH_DENSITY)
+    pmns.SetMix(theta12, theta23, theta13, deltaCP)
+    pmns.SetDeltaMsqrs(dm21, dm32)
+    is_nubar = (_polarity_from_flav(flav) == 'RHC')
+    pmns.SetIsNuBar(is_nubar)
+    src, dst = (1, 1) if lep_pdg == 13 else (1, 0)
+    out = np.array([pmns.Prob(src, dst, float(E), L_use) for E in Enu_true_GeV])
+    pmns.SetIsNuBar(False)   # reset global state
+    return out
+
+
+def osc_weights_mumu(Enu_true_GeV, filename=None, *, exp=None):
+    """Per-event νμ→νμ (or ν̄μ→ν̄μ for RHC) survival probability array.
+    ``exp`` is 'HK' or 'DUNE'; if omitted, detected from ``filename``.
+    ν vs ν̄ is detected from ``filename`` (numubar/nuebar → ν̄)."""
+    return _osc_weights(Enu_true_GeV, filename, exp, lep_pdg=13)
+
+
+def osc_weights_mue(Enu_true_GeV, filename=None, *, exp=None):
+    """Per-event νμ→νe (or ν̄μ→ν̄e) appearance probability array. Use on
+    νe/ν̄e samples (generated with the νμ flux × νe σ)."""
+    return _osc_weights(Enu_true_GeV, filename, exp, lep_pdg=11)
 
 
 def plot_branch(ax_main, filename: str, kinematic: str, bin_width: float, label: str, color: str):
@@ -458,6 +569,77 @@ def make_weights_dxsec(arr, bin_width, fScaleFactor=None):
     return fScaleFactor * DSIGMA_DE_SCALE / bin_width
 
 
+def bias_sel_arr(arr, observable, *, vertex=False, lep_pdg=13):
+    """Return the boolean selection mask that ``bias_arr(arr, observable,
+    ...)`` uses internally. Lets callers filter ``arr['Enu_true']`` or any
+    other branch the same way the bias values were filtered — needed to
+    compute per-event oscillation weights of length matching ``bias_arr``."""
+    if observable == "qe":
+        return is_cc0pi_arr(arr, vertex=vertex, lep_pdg=lep_pdg)
+    if observable in ("had", "avail"):
+        # Match enu_had_arr's cc_mask: arr['cc'] & |PDGLep|==lep_pdg.
+        return (np.asarray(arr['cc'], dtype=bool)
+                & (np.abs(np.asarray(arr['PDGLep'])) == lep_pdg))
+    raise ValueError(f"unknown observable {observable!r}")
+
+
+def weighted_quantile(values, quantiles, weights=None):
+    """Weighted quantile(s) of ``values``. Matches ``np.quantile`` default
+    (linear interpolation) when ``weights`` is None or uniform. ``quantiles``
+    is a scalar or array of probabilities in [0, 1]. Returns same shape as
+    ``quantiles``."""
+    values    = np.asarray(values, dtype=float)
+    quantiles = np.asarray(quantiles, dtype=float)
+    if weights is None:
+        return np.quantile(values, quantiles)
+    weights = np.asarray(weights, dtype=float)
+    order   = np.argsort(values)
+    values  = values[order]
+    weights = weights[order]
+    cum = np.cumsum(weights) - 0.5 * weights
+    total = cum[-1] + 0.5 * weights[-1]
+    if total <= 0:
+        return np.quantile(values, quantiles)
+    cum /= total
+    return np.interp(quantiles, cum, values)
+
+
+def make_weights_dxsec_osc(arr, bin_width, observable, filename,
+                            *, vertex=False, lep_pdg=13, fScaleFactor=None):
+    """Per-event weight = fScaleFactor × DSIGMA_DE_SCALE / bin_width
+                           × P_osc(E_true) / ⟨P_osc⟩_Φ.
+
+    Length matches ``bias_arr(arr, observable, vertex=vertex, lep_pdg=lep_pdg)``.
+
+    Oscillation channel chosen by ``lep_pdg``: 13 (default) → νμ→νμ
+    survival on a νμ/ν̄μ sample; 11 → νμ→νe appearance on a νe/ν̄e sample.
+    ``filename`` is used to auto-detect (HK, DUNE) and (FHC, RHC) from the
+    file name — driving baseline, ν vs ν̄ NuBar flag, and the flux histogram
+    used to compute ⟨P_osc⟩_Φ.
+
+    The 1/⟨P_osc⟩_Φ factor renormalises the (per-event) NUISANCE fScaleFactor
+    — which was computed against the unoscillated flux — to be valid for the
+    oscillated flux. Validated end-to-end in
+    Bias_level_study/validate_osc_fscalefactor.py:
+    matched-target (H₂O) ratio of rescaled-unosc'd vs osc-flux-generated runs
+    integrates to 1.006 over [200, 2000] MeV, with ~6% bin-by-bin spread that
+    is consistent with the limited stats of the 100 k-event validation
+    sample.
+
+    The resulting y-axis IS a proper differential cross-section dσ/dE in
+    [10⁻⁴² cm²/nucleon/MeV] after osc reweighting — same units as
+    ``make_weights_dxsec``."""
+    sel = bias_sel_arr(arr, observable, vertex=vertex, lep_pdg=lep_pdg)
+    Enu_t_sel = np.asarray(arr['Enu_true'])[sel]
+    osc_fn = osc_weights_mue if lep_pdg == 11 else osc_weights_mumu
+    osc_w = osc_fn(Enu_t_sel, filename=filename)
+    if fScaleFactor is None:
+        fScaleFactor = float(np.max(arr['fScaleFactor']))
+    exp, flav = detect_exp_flav(filename)
+    avg = posc_flux_avg(exp, flav, lep_pdg=lep_pdg)
+    return fScaleFactor * DSIGMA_DE_SCALE / bin_width * osc_w / avg
+
+
 def make_weights_event_rate(arr, filename, bin_width=None):
     """Per-event constant weight for Enu-spectrum plots scaled to expected
     event yield. Returns target / N_gen — caller multiplies by
@@ -563,11 +745,14 @@ except ImportError:
 ak = _ak
 uproot = _uproot
 
-# Cache directory — defaults to /eos (huge quota) since AFS home is small.
-# Override with $IOP_PAPER_CACHE if needed.
+# Cache directory — defaults to the project-n shared cache so everyone
+# running these scripts shares the same load_arrays() pickles. Home-EOS
+# has a tighter quota and ran out during the 10M-stats regen; project-n
+# has 1.7 PB free and the cache is generically useful for anyone touching
+# the IOP-paper figures. Override with $IOP_PAPER_CACHE if needed.
 _CACHE_DIR = _os.environ.get(
     'IOP_PAPER_CACHE',
-    '/eos/home-l/lamuntea/.cache/iop_paper'
+    '/eos/project-n/neutrino-generators/iop_paper_cache'
 )
 _os.makedirs(_CACHE_DIR, exist_ok=True)
 
@@ -636,6 +821,35 @@ def _cache_key(filename, branches, max_events):
     return h.hexdigest()
 
 
+USE_10M_STATS = True
+"""Module-level toggle: when True, any single-file NuWro morestats path
+passed to load_arrays() is transparently rewritten to its 10M-stats glob
+equivalent and dispatched to load_arrays_glob() (which applies the 1/N
+fScaleFactor scaling). EDRMF / RPWIA / GENIE paths do not match the
+rewrite pattern, so they fall through unchanged.
+
+Set FlatTreeMod.USE_10M_STATS = False at the top of a script to revert
+to the 1M morestats samples for that run."""
+
+
+def _maybe_rewrite_to_10M(filename):
+    """Return the high_stats_10M glob equivalent of a morestats single-file
+    NuWro path, or None if the path doesn't match the rewrite pattern."""
+    if not USE_10M_STATS:
+        return None
+    if 'nuwro_25031_morestats' not in filename:
+        return None
+    # NEUT / RPWIA / EDRMF / GENIE samples are NOT in high_stats_10M.
+    if any(tok in filename for tok in ('EDRMF', 'RPWIA', 'NEUT_', 'GENIE', 'genie')):
+        return None
+    if '*' in filename or '?' in filename:
+        # Already a glob — caller knows what it's doing, don't double-rewrite.
+        return None
+    return filename.replace(
+        'nuwro_25031_morestats', 'high_stats_10M'
+    ).replace('.flat.root', '_*.flat.root')
+
+
 def load_arrays(filename, branches=DEFAULT_BRANCHES, max_events=None,
                 tree_name='FlatTree_VARS'):
     """Load (cached) NUISFLAT branches from `filename` as awkward arrays.
@@ -643,7 +857,16 @@ def load_arrays(filename, branches=DEFAULT_BRANCHES, max_events=None,
     Returns a dict ``{branch_name: awkward_array}``. Cached on disk under
     ~/.cache/iop_paper/ keyed on (file mtime, size, branch list, max_events).
     Subsequent calls return the cache instead of reading the ROOT file.
+
+    If `USE_10M_STATS` is True and the input is a NuWro morestats path,
+    the call is transparently redirected to load_arrays_glob() on the
+    corresponding 10-chunk high_stats_10M glob (with 1/N fScaleFactor
+    scaling). NEUT / GENIE paths are unaffected.
     """
+    rewritten = _maybe_rewrite_to_10M(filename)
+    if rewritten is not None:
+        return load_arrays_glob(rewritten, branches=branches,
+                                max_events=max_events, tree_name=tree_name)
     if _uproot is None:
         raise RuntimeError("uproot not available")
     branches = tuple(branches)
@@ -693,6 +916,71 @@ def load_arrays(filename, branches=DEFAULT_BRANCHES, max_events=None,
     return out
 
 
+def load_arrays_multifile(filenames, branches=DEFAULT_BRANCHES, max_events=None,
+                          tree_name='FlatTree_VARS', scale_fScaleFactor=True):
+    """Load and concatenate NUISFLAT branches from multiple files.
+
+    Use this when one conceptual sample is split across N NUISFLAT files —
+    e.g. the 10M-stats production at /eos/project-n/.../high_stats_10M/
+    where each variant is 10 × 1M-event chunks.
+
+    Each file is loaded individually (cached) via ``load_arrays`` and the
+    awkward arrays are concatenated along the event axis. Returns a dict
+    with the same keys as ``load_arrays``.
+
+    ``scale_fScaleFactor`` (default True): divides the combined
+    fScaleFactor by len(filenames). NUISANCE writes fScaleFactor per file
+    as if that file were the entire production, so naively summing N
+    chunks would over-count the flux normalisation by N. With scaling on,
+    a 10-chunk 10M sample reproduces the event-rate prediction of any one
+    1M chunk (within ~1/√N stats).
+
+    Pass a single string for convenience; that path delegates to
+    ``load_arrays`` unchanged.
+    """
+    if isinstance(filenames, str):
+        return load_arrays(filenames, branches=branches, max_events=max_events,
+                           tree_name=tree_name)
+    files = list(filenames)
+    if not files:
+        raise ValueError("filenames is empty")
+    if len(files) == 1:
+        return load_arrays(files[0], branches=branches, max_events=max_events,
+                           tree_name=tree_name)
+
+    per_file = [load_arrays(f, branches=branches, max_events=max_events,
+                            tree_name=tree_name) for f in files]
+    # Intersect keys across files (a missing-branch file shouldn't crash
+    # the concat — drop the key for everyone).
+    keys = set(per_file[0].keys())
+    for d in per_file[1:]:
+        keys &= set(d.keys())
+
+    combined = {}
+    for key in sorted(keys):
+        combined[key] = ak.concatenate([d[key] for d in per_file], axis=0)
+
+    if scale_fScaleFactor and 'fScaleFactor' in combined:
+        combined['fScaleFactor'] = combined['fScaleFactor'] / float(len(files))
+    return combined
+
+
+def load_arrays_glob(glob_pattern, **kwargs):
+    """Convenience: glob → sorted file list → load_arrays_multifile.
+
+    Example
+    -------
+    >>> arr = load_arrays_glob(
+    ...     "/eos/project-n/neutrino-generators/generatorOutput/"
+    ...     "FSIIOPPaperinputs/high_stats_10M/HK/HK_numu_FSI_*.flat.root")
+    """
+    import glob as _glob
+    files = sorted(_glob.glob(glob_pattern))
+    if not files:
+        raise FileNotFoundError(f"no files matched {glob_pattern!r}")
+    return load_arrays_multifile(files, **kwargs)
+
+
 def particles_arr(arr, *, vertex=False):
     """Vectorised counterpart of `particles()`. Given the dict from
     load_arrays, returns (n, pdg, E, px, py, pz) jagged arrays.
@@ -718,7 +1006,7 @@ def particles_arr(arr, *, vertex=False):
             arr['px'], arr['py'], arr['pz'])
 
 
-def is_cc0pi_arr(arr, *, vertex=False):
+def is_cc0pi_arr(arr, *, vertex=False, lep_pdg=13):
     """Vectorised CC0pi mask. Returns a 1D numpy bool array of length nevents.
 
     Both branches now compute the selection directly from the particle stack
@@ -727,14 +1015,16 @@ def is_cc0pi_arr(arr, *, vertex=False):
     GENIE NUISFLAT files don't carry it -- computing from `pdg` works for any
     NUISFLAT-format file regardless of generator.
 
-    The selection also requires ``|PDGLep|==13``: NUISFLAT's ``PDGLep`` branch
-    is filled with the highest-energy charged lepton in the final state, so
-    in rare DIS events with hard internal radiation it can be ``±11`` (e±)
-    instead of ``±13`` (μ). Those events then have their ``ELep`` set to the
-    e± energy too, which makes the reco-energy recipe double-count the
-    electron (it also appears in the hadronic sum via ``is_e``) and pushes
-    the bias positive. Dropping ``|PDGLep|!=13`` removes the resulting
-    +tail. Impact on a νμ/ν̄μ NuWro file: ~0.004% of CC events.
+    ``lep_pdg`` selects the expected final-state lepton: 13 (μ±, default) for
+    νμ/ν̄μ samples, 11 (e±) for νe/ν̄e appearance samples. The selection
+    requires the **first** particle in the final-state stack to have
+    ``|pdg|==lep_pdg`` -- this is the literal-first-particle convention also
+    used by the Fig 6 mis-reco cut (drop events where the primary lepton was
+    overwritten by a hard radiated γ→e+e-). Differs from NUISFLAT's ``PDGLep``
+    branch, which records the *highest-energy* charged lepton and so can
+    disagree on rare DIS-with-hard-radiation events; this stricter criterion
+    removes the resulting +tail. Impact on a νμ/ν̄μ NuWro file: ~0.004% of
+    CC events.
     """
     cc = np.asarray(arr['cc'], dtype=bool)
     pdg_field = 'pdg_vert' if vertex else 'pdg'
@@ -742,8 +1032,18 @@ def is_cc0pi_arr(arr, *, vertex=False):
     has_chpi = ak.any(apdg == 211, axis=1)
     has_pi0  = ak.any(apdg == 111, axis=1)
     no_pi = ~ak.to_numpy(has_chpi | has_pi0)
-    is_mu_lep = np.abs(np.asarray(arr['PDGLep'])) == 13
-    return cc & no_pi & is_mu_lep
+    if vertex:
+        # The vertex stack is laid out as [incoming ν, target, outgoing lepton,
+        # hadrons...]; the outgoing-lepton position varies per channel.  Use
+        # NUISANCE's PDGLep scalar (the post-FSI primary lepton) — it agrees
+        # with the vertex-stack primary lepton for the events we care about.
+        is_target_lep = np.abs(np.asarray(arr['PDGLep'])) == lep_pdg
+    else:
+        # Post-FSI stack: position 0 is the primary lepton (matches the Fig 6
+        # mis-reco cut convention pdg[:, 0] == 13 / 11).
+        first_pdg = ak.to_numpy(ak.fill_none(ak.firsts(apdg), -1))
+        is_target_lep = first_pdg == lep_pdg
+    return cc & no_pi & is_target_lep
 
 
 def diff_enu_qe_arr(arr, *, vertex=False, scale_to_MeV=True):
@@ -754,25 +1054,41 @@ def diff_enu_qe_arr(arr, *, vertex=False, scale_to_MeV=True):
     return diff * 1000.0 if scale_to_MeV else diff
 
 
-def enu_had_arr(arr, *, vertex=False):
+def enu_had_arr(arr, *, vertex=False, lep_pdg=13):
     """Vectorised hadronic-energy reconstruction matching NUISANCE
     ``GetErecoil_MINERvA_LowRecoil`` for the hadronic part.
 
     Returns ``(bias_wo, bias_with, valid_mask)`` *filtered to CC events*:
       - bias_wo   = E_ν^reco(no pion-mass subtraction)           − Enu_true
       - bias_with = E_ν^reco(π± with full E, p still kinetic)    − Enu_true
-      - valid_mask is the CC selection (arr['cc']).
+      - valid_mask is the CC selection AND ``|PDGLep|==lep_pdg``.
 
     Per-particle contribution (everything else contributes 0):
-      proton  (2212):       T = E − m
-      π±      (211):        T = E − m   (def 1, "no π mass")
-                            E           (def 2, "with π mass")
-      π0      (111):        E
-      e±      (11):         E
-      γ       (22):         E
-      neutrons / heavy / |pdg|>3000 / strange / etc.: skipped
+      proton    (2212):              T = E − m
+      π±        (211):               T = E − m   (def 1, "no π mass")
+                                     E           (def 2, "with π mass")
+      π0        (111):               E
+      e±        (11):                E
+      γ         (22):                E
+      d/t/α     (1000010020,
+                 1000010030,
+                 1000020040):        T = E − m   (both definitions)
+      neutrons / heavier nuclei / |pdg|>3000 / strange / etc.: skipped
+
+    Light nuclear fragments (d, t, α) are treated like protons: kinetic
+    energy only, in both ``add_wo`` and ``add_with``. Their rest mass is
+    bound nuclear binding and not detected calorimetrically. Restoring
+    them lifts GENIE G18_10c E_had/E_avail by ~19 MeV/event (~1.2 %) and
+    G18_10d by ~5 MeV/event (~0.3 %); NuWro and G18_10a are unaffected
+    since neither produces these fragments in the samples used here.
     Lepton energy ELep is added separately (so the histogrammed quantity is
-    full E_ν^reco = ELep + Σ_hadronic, not just the recoil)."""
+    full E_ν^reco = ELep + Σ_hadronic, not just the recoil).
+
+    ``lep_pdg`` selects the expected primary lepton: 13 (default) for
+    νμ/ν̄μ samples; 11 for νe/ν̄e appearance samples. The cut removes the
+    ~0.004% misID-tail (NUISFLAT's ELep filled with the wrong lepton's
+    energy from hard radiation, producing an unphysical +50..+3000 MeV bias
+    tail)."""
     n, pdg, E, px, py, pz = particles_arr(arr, vertex=vertex)
     apdg = abs(pdg)
     p2 = px*px + py*py + pz*pz
@@ -782,23 +1098,36 @@ def enu_had_arr(arr, *, vertex=False):
     is_p     = apdg == 2212
     is_chpi  = apdg == 211
     is_pi0   = apdg == 111
-    is_e     = apdg == 11
+    # is_e catches SECONDARY electrons (from γ → e+e- conversion / hard
+    # radiation) which legitimately belong in the EM-shower part of the
+    # hadronic recoil.  The PRIMARY lepton's energy is added separately via
+    # arr['ELep'] below — excluding position 0 here avoids double-counting
+    # on νe/ν̄e samples (post-FSI primary electron lives at pdg[0]). No
+    # effect on νμ/ν̄μ samples since their primary is pdg=±13, never in
+    # is_e. For vertex=True position 0 is the incoming neutrino (pdg=±12/14),
+    # never in is_e either, so the exclusion is a no-op there — accepted as
+    # a small mis-handling of the hypothetical vertex=True × νe combination,
+    # which isn't used by any current figure script.
+    is_primary = ak.local_index(apdg) == 0
+    is_e     = (apdg == 11) & ~is_primary
     is_gamma = apdg == 22
+    # Light nuclear fragments (deuteron, triton, alpha): treat their KE
+    # like the proton's in both definitions — rest mass is invisible to
+    # the detector, only dE/dx is recorded.
+    is_lightnuc = (apdg == 1000010020) | (apdg == 1000010030) | (apdg == 1000020040)
     full_E_set = is_pi0 | is_e | is_gamma                # always +E
+    kin_set_wo   = is_p | is_chpi | is_lightnuc          # kinetic in def 1
+    kin_set_with = is_p | is_lightnuc                    # kinetic in def 2
 
-    # Definition 1 (no π mass): p and π± both contribute kinetic energy.
-    add_wo   = (is_p | is_chpi) * (E - mass) + full_E_set * E
-    # Definition 2 (with π mass): p kinetic, π± full E.
-    add_with = is_p * (E - mass) + (is_chpi | full_E_set) * E
+    # Definition 1 (no π mass): p, π± and light nuclei contribute kinetic energy.
+    add_wo   = kin_set_wo   * (E - mass) + full_E_set * E
+    # Definition 2 (with π mass): p and light nuclei kinetic, π± full E.
+    add_with = kin_set_with * (E - mass) + (is_chpi | full_E_set) * E
 
     enuhad_wo   = ak.to_numpy(arr['ELep']) + ak.to_numpy(ak.sum(add_wo,   axis=1))
     enuhad_with = ak.to_numpy(arr['ELep']) + ak.to_numpy(ak.sum(add_with, axis=1))
     Enu_true    = ak.to_numpy(arr['Enu_true'])
-    # Tighten cc to also require |PDGLep|==13 -- see is_cc0pi_arr for the
-    # rationale (~0.004% of CC events have NUISFLAT's ELep filled with an
-    # e± energy from a hard radiation product instead of the primary muon,
-    # which produces an unphysical +50..+3000 MeV bias tail).
-    cc_mask     = np.asarray(arr['cc'], dtype=bool) & (np.abs(np.asarray(arr['PDGLep'])) == 13)
+    cc_mask     = np.asarray(arr['cc'], dtype=bool) & (np.abs(np.asarray(arr['PDGLep'])) == lep_pdg)
     return (enuhad_wo - Enu_true)[cc_mask], (enuhad_with - Enu_true)[cc_mask], cc_mask
 
 
@@ -835,7 +1164,7 @@ REL_BIAS_XLIM = (-0.9, 0.3)
 DSIGMA_DREL_LABEL = r"$\mathrm{d}\sigma/\mathrm{d}\delta$ [10$^{-42}$ cm$^{2}$/nucleon]"
 
 
-def bias_arr(arr, observable, *, kind="abs", vertex=False):
+def bias_arr(arr, observable, *, kind="abs", vertex=False, lep_pdg=13):
     """Unified neutrino-energy bias accessor used by every bias-plot script.
 
     observable : {'qe', 'had', 'avail'}
@@ -845,12 +1174,15 @@ def bias_arr(arr, observable, *, kind="abs", vertex=False):
     kind : {'abs', 'rel'}
         - 'abs' -- (E_reco - E_true) in MeV (matches diff_enu_qe_arr semantics)
         - 'rel' -- (E_reco - E_true) / E_true, dimensionless
+    lep_pdg : int (only used for observable='qe')
+        13 (default) for νμ/ν̄μ samples, 11 for νe/ν̄e samples — forwarded to
+        the underlying ``is_cc0pi_arr`` selection.
 
     Returns a 1-D numpy array of length = events passing the observable's
     intrinsic selection (CC0pi for 'qe'; CC for 'had'/'avail').
     """
     if observable == "qe":
-        sel = is_cc0pi_arr(arr, vertex=vertex)
+        sel = is_cc0pi_arr(arr, vertex=vertex, lep_pdg=lep_pdg)
         enu_qe_GeV   = ak.to_numpy(arr['Enu_QE'])[sel]
         enu_true_GeV = ak.to_numpy(arr['Enu_true'])[sel]
         diff_GeV = enu_qe_GeV - enu_true_GeV
@@ -860,7 +1192,7 @@ def bias_arr(arr, observable, *, kind="abs", vertex=False):
         return np.where(enu_true_GeV > 0, diff_GeV / safe, 0.0)
 
     if observable in ("had", "avail"):
-        bias_wo_GeV, bias_with_GeV, cc_mask = enu_had_arr(arr, vertex=vertex)
+        bias_wo_GeV, bias_with_GeV, cc_mask = enu_had_arr(arr, vertex=vertex, lep_pdg=lep_pdg)
         diff_GeV = bias_with_GeV if observable == "had" else bias_wo_GeV
         if kind == "abs":
             return diff_GeV * 1000.0
@@ -899,7 +1231,7 @@ def bias_ylabel(kind):
     return DSIGMA_DE_LABEL if kind == "abs" else DSIGMA_DREL_LABEL
 
 
-def enu_true_arr(arr, observable, *, vertex=False):
+def enu_true_arr(arr, observable, *, vertex=False, lep_pdg=13):
     """Return Enu_true in GeV, filtered to the same selection bias_arr uses
     for `observable` in {'qe', 'had', 'avail'}.
 
@@ -907,15 +1239,15 @@ def enu_true_arr(arr, observable, *, vertex=False):
     distribution alongside the bias histogram so the inputs to the bias
     calculation can be eyeballed per-variant."""
     if observable == "qe":
-        sel = is_cc0pi_arr(arr, vertex=vertex)
+        sel = is_cc0pi_arr(arr, vertex=vertex, lep_pdg=lep_pdg)
         return ak.to_numpy(arr['Enu_true'])[sel]
     if observable in ("had", "avail"):
-        _, _, cc_mask = enu_had_arr(arr, vertex=vertex)
+        _, _, cc_mask = enu_had_arr(arr, vertex=vertex, lep_pdg=lep_pdg)
         return ak.to_numpy(arr['Enu_true'])[np.asarray(cc_mask, dtype=bool)]
     raise ValueError(f"unknown observable {observable!r}; use 'qe', 'had' or 'avail'")
 
 
-def enu_reco_arr(arr, observable, *, vertex=False):
+def enu_reco_arr(arr, observable, *, vertex=False, lep_pdg=13):
     """Return Enu_reco in GeV (the appropriate reconstruction for the given
     observable), filtered to the same selection as bias_arr.
 
@@ -924,10 +1256,10 @@ def enu_reco_arr(arr, observable, *, vertex=False):
       'avail' -> ELep + ehad_wo   (charged-pion KE only)
     """
     if observable == "qe":
-        sel = is_cc0pi_arr(arr, vertex=vertex)
+        sel = is_cc0pi_arr(arr, vertex=vertex, lep_pdg=lep_pdg)
         return ak.to_numpy(arr['Enu_QE'])[sel]
     if observable in ("had", "avail"):
-        bias_wo_GeV, bias_with_GeV, cc_mask = enu_had_arr(arr, vertex=vertex)
+        bias_wo_GeV, bias_with_GeV, cc_mask = enu_had_arr(arr, vertex=vertex, lep_pdg=lep_pdg)
         diff_GeV = bias_with_GeV if observable == "had" else bias_wo_GeV
         enu_true_GeV = ak.to_numpy(arr['Enu_true'])[np.asarray(cc_mask, dtype=bool)]
         return diff_GeV + enu_true_GeV
@@ -978,13 +1310,19 @@ def auto_ratio_ylim(ax_ratio, counts_nom, *,
 
 
 def smooth_shift_ratio(counts, edges, shift,
-                       count_floor_frac=1e-3, ratio_clip=10.0):
-    """Analytical H(E - shift) / H(E) via centered finite-difference of log-counts.
+                       count_floor_frac=1e-3, ratio_clip=10.0,
+                       order=4):
+    """Analytical H(E - shift) / H(E) via Taylor expansion of log-counts.
 
-    Uses the first-order Taylor expansion
-        H(E - Δ) / H(E) ≈ exp(-Δ · d ln H / dE)
-    which for small Δ vs the spectrum width gives a smooth ratio with no
-    per-bin Poisson scatter from the explicit-shift implementation.
+    Uses the order-N Taylor expansion of ln H around E:
+        ln H(E - Δ) ≈ ln H(E) + Σ_{k=1..N}  (-Δ)^k / k!  ·  d^k ln H / dE^k
+    then exponentiates to get the ratio.  N is the ``order`` arg (1..4).
+
+    For an exponentially-falling spectrum H(E) ~ exp(-aE) the order-1
+    answer is already exact; higher orders matter at the spectrum
+    peak / shoulder where d²(ln H)/dE², etc., are non-negligible. Order
+    4 is the practical limit — numerical finite-difference noise grows
+    rapidly with each extra derivative.
 
     `edges` and `shift` must be in the same units; `counts` is the
     unshifted weighted bin contents. `shift` may be a scalar or a per-bin
@@ -999,10 +1337,26 @@ def smooth_shift_ratio(counts, edges, shift,
     (no shift correction) and additionally clip the final ratio to
     [1/ratio_clip, ratio_clip] as a safety net inside the live region.
     """
+    if not (1 <= int(order) <= 4):
+        raise ValueError(f"order must be in [1, 4], got {order}")
     centers = 0.5 * (edges[:-1] + edges[1:])
     safe = np.maximum(counts, 1e-30)
-    dlogH_dE = np.gradient(np.log(safe), centers)
-    ratio = np.exp(-shift * dlogH_dE)
+    log_H = np.log(safe)
+
+    # Build successive derivatives d^k ln H / dE^k via repeated centered
+    # finite differences. Each derivative amplifies numerical noise; if
+    # order > 1 the user accepts that trade-off.
+    deriv = [log_H]
+    for _ in range(int(order)):
+        deriv.append(np.gradient(deriv[-1], centers))
+    # deriv[k] for k >= 1 is d^k ln H / dE^k.
+
+    # log-ratio = Σ_{k=1..N} (-Δ)^k / k! · d^k ln H / dE^k
+    from math import factorial
+    log_ratio = np.zeros_like(centers, dtype=float)
+    for k in range(1, int(order) + 1):
+        log_ratio = log_ratio + ((-shift) ** k / factorial(k)) * deriv[k]
+    ratio = np.exp(log_ratio)
 
     counts_arr = np.asarray(counts)
     peak = float(counts_arr.max()) if counts_arr.size else 0.0

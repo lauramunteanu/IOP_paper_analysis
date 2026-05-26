@@ -133,8 +133,8 @@ Every Fig script does `from FlatTreeMod import *`. The module provides:
 `max_events`) combination to:
 
 ```
-$IOP_PAPER_CACHE             # if set
-/eos/home-l/lamuntea/.cache/iop_paper/   # default (override with $IOP_PAPER_CACHE)
+$IOP_PAPER_CACHE                                       # if set
+/eos/project-n/neutrino-generators/iop_paper_cache/    # default (shared with team)
 ```
 
 Subsequent calls with the same key load from disk instead of re-decoding the
