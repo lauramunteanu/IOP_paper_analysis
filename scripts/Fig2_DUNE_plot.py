@@ -9,7 +9,7 @@ BIN_SPECS = {
 }
 
 
-def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, mode, vertex=False):
+def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, mode, vertex=False, lep_pdg=13):
     """Caller passes a noFSI sample file when they want the noFSI line; we
     always read the post-FSI stack (vertex=False). withPiCorr=True picks
     Enu^had (charged-pi full E); False picks Enu^avail (charged-pi KE only)."""
@@ -17,10 +17,10 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, mode, vertex=Fa
     arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
 
     observable = "had" if withPiCorr else "avail"
-    bias = bias_arr(arr, observable, kind=mode, vertex=False)
+    bias = bias_arr(arr, observable, kind=mode, vertex=False, lep_pdg=lep_pdg)
 
     # neutron-content split on the same CC selection as bias_arr uses.
-    _, _, cc_mask = enu_had_arr(arr, vertex=False)
+    _, _, cc_mask = enu_had_arr(arr, vertex=False, lep_pdg=lep_pdg)
     n_arr, pdg_arr, _, _, _, _ = particles_arr(arr, vertex=False)
     has_neutron_all = ak.to_numpy(ak.any(abs(pdg_arr) == 2112, axis=1))
     has_neutron = has_neutron_all[np.asarray(cc_mask, dtype=bool)]
@@ -32,7 +32,11 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, mode, vertex=Fa
     centers = 0.5 * (bins[:-1] + bins[1:])
 
     fScaleFactor = float(np.max(arr['fScaleFactor']))
-    weights_total = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias)
+    # Per-event dσ/dE × P_osc weights. DUNE selection is just `arr['cc']`
+    # (enu_had_arr's third return), so length matches `bias`.
+    weights_total = make_weights_dxsec_osc(arr, bin_width, observable, filename,
+                                           vertex=False, lep_pdg=lep_pdg,
+                                           fScaleFactor=fScaleFactor)
     counts_total, _ = np.histogram(bias, bins=bins, weights=weights_total)
 
     ax.hist(bias, bins=bins, histtype='step', weights=weights_total,
@@ -45,7 +49,8 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, mode, vertex=Fa
         if len(vals) == 0:
             sub_counts[has_n] = np.zeros_like(counts_total)
             continue
-        w = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(vals)
+        # Subset weights = total weights sliced by the same neutron-presence mask.
+        w = weights_total[has_neutron == has_n]
         ax.hist(vals, bins=bins, histtype='step', weights=w,
                 color=color, linewidth=1.4)
         c, _ = np.histogram(vals, bins=bins, weights=w)
@@ -80,16 +85,22 @@ def plot_Enu_bias_numu(filename, nEvents, withPiCorr, plot_name, mode, vertex=Fa
 
 
 _events = -1
-NUMU = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root"
+NUMU  = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root"
 NUMUB = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root"
+NUE   = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nue_FSI.flat.root"
+NUEB  = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nueb_FSI.flat.root"
 
 # noFSI line comes from the dedicated noFSI sample file (post-FSI stack of an
 # FSI file is biased by NuWro binding-energy bookkeeping at cascade exit).
 _CONFIGS = [
-    dict(filename=noFSI_path(NUMU),  withPiCorr=True,  plot_name="WithPion_noFSI_numu"),
-    dict(filename=noFSI_path(NUMUB), withPiCorr=True,  plot_name="WithPion_noFSI_numubar"),
-    dict(filename=noFSI_path(NUMU),  withPiCorr=False, plot_name="WithoutPion_noFSI_numu"),
-    dict(filename=noFSI_path(NUMUB), withPiCorr=False, plot_name="WithoutPion_noFSI_numubar"),
+    dict(filename=noFSI_path(NUMU),  withPiCorr=True,  plot_name="WithPion_noFSI_numu",      lep_pdg=13),
+    dict(filename=noFSI_path(NUMUB), withPiCorr=True,  plot_name="WithPion_noFSI_numubar",   lep_pdg=13),
+    dict(filename=noFSI_path(NUMU),  withPiCorr=False, plot_name="WithoutPion_noFSI_numu",   lep_pdg=13),
+    dict(filename=noFSI_path(NUMUB), withPiCorr=False, plot_name="WithoutPion_noFSI_numubar",lep_pdg=13),
+    dict(filename=noFSI_path(NUE),   withPiCorr=True,  plot_name="WithPion_noFSI_nue",       lep_pdg=11),
+    dict(filename=noFSI_path(NUEB),  withPiCorr=True,  plot_name="WithPion_noFSI_nuebar",    lep_pdg=11),
+    dict(filename=noFSI_path(NUE),   withPiCorr=False, plot_name="WithoutPion_noFSI_nue",    lep_pdg=11),
+    dict(filename=noFSI_path(NUEB),  withPiCorr=False, plot_name="WithoutPion_noFSI_nuebar", lep_pdg=11),
 ]
 
 for mode in ("abs", "rel"):

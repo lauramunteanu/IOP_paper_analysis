@@ -16,12 +16,20 @@ YBIN_SPECS = {
 }
 
 
-def plot_Enu_bias(filename, isNub, nEvents, plot_name, mode, xbins):
+def plot_Enu_bias(filename, isNub, nEvents, plot_name, mode, xbins, lep_pdg=13):
+  # NOTE on oscillation: this is a 2-D heatmap normalised per-Enu_true row.
+  # P(νμ→νμ) (or P(νμ→νe) for the appearance samples) depends only on Enu_true,
+  # so it is constant within each row and cancels out in the row-normalisation.
+  # The median / mean / 16-84% band overlay is unweighted percentile-of-bias
+  # *within each Enu_true slice* — also osc-invariant. Hence no osc weights are
+  # applied here; the figure would be byte-identical with or without them.
+  # lep_pdg switches the CC0π selection to electron-final-state for the
+  # νe/ν̄e appearance samples.
   fig, ax = make_fig('single')
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
-  diff_sel = bias_arr(arr, "qe", kind=mode, vertex=False)
+  diff_sel = bias_arr(arr, "qe", kind=mode, vertex=False, lep_pdg=lep_pdg)
   # Enu_true on the same CC0pi selection (always MeV — this is the x-axis).
-  flag = is_cc0pi_arr(arr, vertex=False)
+  flag = is_cc0pi_arr(arr, vertex=False, lep_pdg=lep_pdg)
   Enu_t_sel = np.asarray(arr['Enu_true'])[flag] * 1000.0
 
   yspec = YBIN_SPECS[mode]
@@ -81,5 +89,7 @@ _events = -1
 _xbins = np.arange(150, 2000 + 60, 60)   # Enu_true bins, HK 150 MeV - 2 GeV, 60 MeV/bin
 
 for mode in ("abs", "rel"):
-    plot_Enu_bias(filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root",    isNub=True,  nEvents=_events, plot_name="FSI_numub", mode=mode, xbins=_xbins)
-    plot_Enu_bias(filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root", isNub=False, nEvents=_events, plot_name="FSI_numu",  mode=mode, xbins=_xbins)
+    plot_Enu_bias(filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root",    isNub=True,  nEvents=_events, plot_name="FSI_numub",  mode=mode, xbins=_xbins, lep_pdg=13)
+    plot_Enu_bias(filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root", isNub=False, nEvents=_events, plot_name="FSI_numu",   mode=mode, xbins=_xbins, lep_pdg=13)
+    plot_Enu_bias(filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_nue_FSI.flat.root",     isNub=False, nEvents=_events, plot_name="FSI_nue",    mode=mode, xbins=_xbins, lep_pdg=11)
+    plot_Enu_bias(filename="../../Remade_April26/nuwro_25031_morestats/HK/HK_nuebar_FSI.flat.root",  isNub=True,  nEvents=_events, plot_name="FSI_nuebar", mode=mode, xbins=_xbins, lep_pdg=11)

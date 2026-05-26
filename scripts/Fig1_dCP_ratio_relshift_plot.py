@@ -42,17 +42,23 @@ def _step_double_ratio(ax_ratio, variant_ratio, nominal_ratio, color):
 
 
 def plot_ratio(IsReco):
+    # Bin width: 20 MeV for Eν^QE (Fig 1 paper convention), 50 MeV for
+    # Eν^true (matches T2K flux native binning).
+    global bin_width, bins, centers
+    bin_width = 20 if IsReco else 50
+    bins = np.arange(0, 2000, step=bin_width)
+    centers = 0.5 * (bins[:-1] + bins[1:])
     fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(1, 1), hspace=0.07)
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)
 
-    f_numu  = "../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root"
-    f_nubar = "../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root"
+    f_numu  = "../../Remade_April26/nuwro_25031_morestats/HK/HK_nue_FSI.flat.root"
+    f_nubar = "../../Remade_April26/nuwro_25031_morestats/HK/HK_nuebar_FSI.flat.root"
     arr_numu  = load_arrays(f_numu,  max_events=1_000_000)
     arr_nubar = load_arrays(f_nubar, max_events=1_000_000)
 
-    flag_numu  = is_cc0pi_arr(arr_numu,  vertex=False)
-    flag_nubar = is_cc0pi_arr(arr_nubar, vertex=False)
+    flag_numu  = is_cc0pi_arr(arr_numu,  vertex=False, lep_pdg=11)
+    flag_nubar = is_cc0pi_arr(arr_nubar, vertex=False, lep_pdg=11)
 
     Enu_t_numu  = np.asarray(arr_numu['Enu_true'])[flag_numu]  * 1000.0
     Enu_t_nubar = np.asarray(arr_nubar['Enu_true'])[flag_nubar] * 1000.0

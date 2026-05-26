@@ -21,19 +21,27 @@ def write_stats(outfile, stats):
     )
 
 
-def plot_HK_Enu_bias(ax, filename, index, label, nEvents, mode, vertex=False):
+def plot_HK_Enu_bias(ax, filename, index, label, nEvents, mode, vertex=False, lep_pdg=13):
   global outfile
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
-  diff_all = bias_arr(arr, "qe", kind=mode, vertex=vertex)
+  diff_all = bias_arr(arr, "qe", kind=mode, vertex=vertex, lep_pdg=lep_pdg)
+  # Per-event νμ→νμ (or νμ→νe for lep_pdg=11) osc weights — sliced by the
+  # |diff| cap so percentile / mean below are weighted by detector event rate.
+  sel = bias_sel_arr(arr, "qe", vertex=vertex, lep_pdg=lep_pdg)
+  Enu_t_sel = np.asarray(arr['Enu_true'])[sel]
+  osc_fn = osc_weights_mue if lep_pdg == 11 else osc_weights_mumu
+  osc_w = osc_fn(Enu_t_sel, filename=filename)
   # Cap on |diff| to drop tails — threshold scales with mode units.
   cap = 1000.0 if mode == "abs" else 1.0
-  diff_sel = diff_all[np.abs(diff_all) < cap]
+  mask = np.abs(diff_all) < cap
+  diff_sel = diff_all[mask]
+  w_sel    = osc_w[mask]
 
-  q16, q50, q84 = np.percentile(diff_sel, [16, 50, 84])
-  q10, q90      = np.percentile(diff_sel, [10, 90])
+  q16, q50, q84 = weighted_quantile(diff_sel, [0.16, 0.50, 0.84], weights=w_sel)
+  q10, q90      = weighted_quantile(diff_sel, [0.10, 0.90],       weights=w_sel)
   vmin = q10
   vmax = q90
-  mean = diff_sel.mean()
+  mean = float(np.average(diff_sel, weights=w_sel))
 
   write_stats(outfile, [label, q50, mean, q10, q90, q16, q84])
 
@@ -61,17 +69,21 @@ def plot_HK_Enu_bias(ax, filename, index, label, nEvents, mode, vertex=False):
   ax.invert_yaxis()
 
 
-def plot_DUNE_Enu_bias(ax, filename, index, label, nEvents, withPiCorr, mode, vertex=False):
+def plot_DUNE_Enu_bias(ax, filename, index, label, nEvents, withPiCorr, mode, vertex=False, lep_pdg=13):
     global outfile
     arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
     observable = "had" if withPiCorr else "avail"
-    diff_sel = bias_arr(arr, observable, kind=mode, vertex=vertex)
+    diff_sel = bias_arr(arr, observable, kind=mode, vertex=vertex, lep_pdg=lep_pdg)
+    sel = bias_sel_arr(arr, observable, vertex=vertex, lep_pdg=lep_pdg)
+    Enu_t_sel = np.asarray(arr['Enu_true'])[sel]
+    osc_fn = osc_weights_mue if lep_pdg == 11 else osc_weights_mumu
+    osc_w = osc_fn(Enu_t_sel, filename=filename)
 
-    q16, q50, q84 = np.percentile(diff_sel, [16, 50, 84])
-    q10, q90      = np.percentile(diff_sel, [10, 90])
+    q16, q50, q84 = weighted_quantile(diff_sel, [0.16, 0.50, 0.84], weights=osc_w)
+    q10, q90      = weighted_quantile(diff_sel, [0.10, 0.90],       weights=osc_w)
     vmin = q10
     vmax = q90
-    mean = diff_sel.mean()
+    mean = float(np.average(diff_sel, weights=osc_w))
 
     write_stats(outfile, [label, q50, mean, q10, q90, q16, q84])
 

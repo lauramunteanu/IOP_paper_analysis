@@ -25,7 +25,8 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, withPion, mode,
   spec = BIN_SPECS[mode]
   bin_width = spec["bin_width"]
   bins = np.arange(spec["lo"], spec["hi"] + bin_width, step=bin_width)
-  weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias)
+  weights = make_weights_dxsec_osc(arr, bin_width, observable, filename,
+                                    vertex=False, fScaleFactor=fScaleFactor)
 
   if label == "ED-RMF":
       color = COL_EDRMF

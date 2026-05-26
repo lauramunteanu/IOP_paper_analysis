@@ -21,13 +21,19 @@ YBIN_SPECS = {
 }
 
 
-def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, mode, xbins):
+def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, mode, xbins, lep_pdg=13):
+  # NOTE on oscillation: 2-D heatmap is normalised per-Enu_true row, and the
+  # mean / median / 16-84% band overlay uses unweighted percentiles within
+  # each Enu_true slice. P_osc depends only on Enu_true, so it is constant
+  # within a slice and cancels — no osc weighting applied here. The lep_pdg
+  # kwarg threads the muon/electron selection through to enu_had_arr so
+  # νe / ν̄e samples (lep_pdg=11) get the right CC events.
   fig, ax = make_fig('single')
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
   observable = "had" if withPion else "avail"
-  yvals = bias_arr(arr, observable, kind=mode, vertex=False)
+  yvals = bias_arr(arr, observable, kind=mode, vertex=False, lep_pdg=lep_pdg)
   # Enu_true on the same CC selection.
-  _, _, cc_mask = enu_had_arr(arr, vertex=False)
+  _, _, cc_mask = enu_had_arr(arr, vertex=False, lep_pdg=lep_pdg)
   Enu_t = np.asarray(arr['Enu_true'])[np.asarray(cc_mask, dtype=bool)] * 1000.0  # MeV
 
   yspec = YBIN_SPECS[mode]
@@ -83,8 +89,18 @@ def plot_Enu_bias_numu(filename, nEvents, plot_name, withPion, mode, xbins):
 _events = -1
 _xbins = np.arange(300, 6000 + 120, 120)   # Enu_true bins, DUNE 300 MeV - 6 GeV, 120 MeV/bin
 
+_FILES = [
+    ("../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",  "numu",    13),
+    ("../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root", "numubar", 13),
+    ("../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nue_FSI.flat.root",   "nue",     11),
+    ("../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nueb_FSI.flat.root",  "nuebar",  11),
+]
+
 for mode in ("abs", "rel"):
-    plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",  nEvents=_events, plot_name="FSI_WithoutPion_numu",    withPion=False, mode=mode, xbins=_xbins)
-    plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithoutPion_numubar", withPion=False, mode=mode, xbins=_xbins)
-    plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",  nEvents=_events, plot_name="FSI_WithPion_numu",       withPion=True,  mode=mode, xbins=_xbins)
-    plot_Enu_bias_numu(filename="../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root", nEvents=_events, plot_name="FSI_WithPion_numubar",    withPion=True,  mode=mode, xbins=_xbins)
+    for fname, flav, lep_pdg in _FILES:
+        plot_Enu_bias_numu(filename=fname, nEvents=_events,
+                           plot_name=f"FSI_WithoutPion_{flav}", withPion=False,
+                           mode=mode, xbins=_xbins, lep_pdg=lep_pdg)
+        plot_Enu_bias_numu(filename=fname, nEvents=_events,
+                           plot_name=f"FSI_WithPion_{flav}", withPion=True,
+                           mode=mode, xbins=_xbins, lep_pdg=lep_pdg)

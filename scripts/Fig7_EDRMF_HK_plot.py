@@ -5,6 +5,12 @@ ROOT.gROOT.SetBatch(True)
 COL_EDRMF = "#444444"  # COL_GREY
 COL_RPWIA = "#E69F00"  # COL_ORANGE
 
+# NEUT EDRMF/RPWIA samples are generated on an O target; convert to the
+# per-H2O-nucleon convention used by every other figure in the paper
+# (NuWro/GENIE on water). Pure normalisation; ratio panel and any
+# weighted-statistic downstream (BW, variation table) are invariant.
+NEUT_O_PER_H2O = 16.0 / 18.0
+
 # Per-mode bin spec for the HK EDRMF/RPWIA bias histogram. abs xlim (-900, 500)
 # matches the wider HK abs range used by Fig 2 / Fig 3 / Fig 6.
 BIN_SPECS = {
@@ -21,7 +27,8 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, label, nEvents, mode, nominal=Fal
   spec = BIN_SPECS[mode]
   bin_width = spec["bin_width"]
   bins = np.arange(spec["lo"], spec["hi"] + bin_width, step=bin_width)
-  weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(diff_sel)
+  weights = make_weights_dxsec_osc(arr, bin_width, "qe", filename,
+                                    vertex=False, fScaleFactor=fScaleFactor) * NEUT_O_PER_H2O
 
   if label == "ED-RMF":
     color = COL_EDRMF

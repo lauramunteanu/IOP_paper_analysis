@@ -29,13 +29,24 @@ def plot_osc_reco(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts
 
 
 def plot_EnuReco(nEvents, IsReco, IsdCP):
+    # Bin width: 100 MeV for Eν^reco (Fig 1 paper convention), 125 MeV
+    # for Eν^true (matches DUNE flux native binning).
+    global bin_width, bins
+    bin_width = 100.0 if IsReco else 125.0
+    bins = np.arange(0, 6000 + bin_width, step=bin_width)
     fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(1, 1), hspace=0.07)
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)
 
-    filename = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root"
+    # dCP branch is appearance (νμ→νe), use the νe sample (νμ flux × νe σ).
+    # dm32 branch is disappearance (νμ→νμ), keep the νμ sample.
+    filename = ("../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nue_FSI.flat.root"
+                if IsdCP else
+                "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root")
     arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
-    bias_wo_GeV, bias_with_GeV, valid = enu_had_arr(arr, vertex=False)
+    # IsdCP → νe sample (primary lepton is e); not IsdCP → νμ sample (μ).
+    lep_pdg = 11 if IsdCP else 13
+    bias_wo_GeV, bias_with_GeV, valid = enu_had_arr(arr, vertex=False, lep_pdg=lep_pdg)
     Enu_t_GeV  = np.asarray(arr['Enu_true'])[valid]
     Enu_t_sel  = Enu_t_GeV * 1000.0
     bias_with_list = (bias_with_GeV + Enu_t_GeV) * 1000.0
@@ -62,13 +73,22 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
     pmns.SetDeltaMsqrs(dm21, dm32 * 0.996)
     prob_minus_dm2 = np.array([pmns.Prob(1, 1, E, L) for E in Enu_t_GeV])
 
+    # Apply event-yield scaling unconditionally so both reco and truth panels see it.
+    if IsdCP:
+        target = expected_events(filename, channel='nue')
+        scale = target / float(prob_default_nue.sum())
+        prob_default_nue = prob_default_nue * scale
+        prob_plus_dcp    = prob_plus_dcp    * scale
+        prob_minus_dcp   = prob_minus_dcp   * scale
+    else:
+        target = expected_events(filename, channel='numu')
+        scale = target / float(prob_default_numu.sum())
+        prob_default_numu = prob_default_numu * scale
+        prob_plus_dm2     = prob_plus_dm2     * scale
+        prob_minus_dm2    = prob_minus_dm2    * scale
+
     if IsReco:
         if IsdCP:
-            target = expected_events(filename, channel='nue')
-            scale = target / float(prob_default_nue.sum())
-            prob_default_nue = prob_default_nue * scale
-            prob_plus_dcp    = prob_plus_dcp    * scale
-            prob_minus_dcp   = prob_minus_dcp   * scale
             counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, r"Nominal $\delta_{CP} = -\pi/2$", tol_dark, prob_default_nue, True, counts_nom)
             plot_osc_reco(ax, ax_ratio, bias_with_list, r"$\delta_{CP} + 20^{\circ}$", osc_inc_color, prob_plus_dcp,  False, counts_nom)
             plot_osc_reco(ax, ax_ratio, bias_with_list, r"$\delta_{CP} - 20^{\circ}$", osc_dec_color, prob_minus_dcp, False, counts_nom)
@@ -86,11 +106,6 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
             ax_ratio.set_ylim(0.90, 1.1)
             plt.savefig(outpath("Fig1_plots", "Fig1_DUNE_Enuhad_dCP_FHC_relshift.pdf"))
         else:
-            target = expected_events(filename, channel='numu')
-            scale = target / float(prob_default_numu.sum())
-            prob_default_numu = prob_default_numu * scale
-            prob_plus_dm2     = prob_plus_dm2     * scale
-            prob_minus_dm2    = prob_minus_dm2    * scale
             counts_nom = plot_osc_reco(ax, ax_ratio, bias_with_list, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$", tol_dark, prob_default_numu, True, counts_nom)
             plot_osc_reco(ax, ax_ratio, bias_with_list, r"$\Delta m^{2}_{32} + 0.4\%$", osc_inc_color, prob_plus_dm2,  False, counts_nom)
             plot_osc_reco(ax, ax_ratio, bias_with_list, r"$\Delta m^{2}_{32} - 0.4\%$", osc_dec_color, prob_minus_dm2, False, counts_nom)
@@ -112,6 +127,7 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
             counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"Nominal $\delta_{CP} = -\pi/2$", tol_dark, prob_default_nue, True, counts_nom)
             plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"$\delta_{CP} + 20^{\circ}$", osc_inc_color, prob_plus_dcp,  False, counts_nom)
             plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"$\delta_{CP} - 20^{\circ}$", osc_dec_color, prob_minus_dcp, False, counts_nom)
+            ax.set_xlim(0, 6000); ax_ratio.set_xlim(0, 6000)
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm true}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90, 1.1)
@@ -120,6 +136,7 @@ def plot_EnuReco(nEvents, IsReco, IsdCP):
             counts_nom = plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"Nominal $\Delta m^{2}_{32} = 2.437 \times 10^{-3}$ eV$^{2}$", tol_dark, prob_default_numu, True, counts_nom)
             plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"$\Delta m^{2}_{32} + 0.4\%$", osc_inc_color, prob_plus_dm2,  False, counts_nom)
             plot_osc_reco(ax, ax_ratio, Enu_t_sel, r"$\Delta m^{2}_{32} - 0.4\%$", osc_dec_color, prob_minus_dm2, False, counts_nom)
+            ax.set_xlim(0, 6000); ax_ratio.set_xlim(0, 6000)
             ax_ratio.set_xlabel(r"$E_{\nu}^{\rm true}$ [MeV]")
             ax.set_ylabel(EVENT_RATE_LABEL)
             ax_ratio.set_ylim(0.90, 1.1)

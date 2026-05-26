@@ -13,17 +13,19 @@ BIN_SPECS = {
 }
 
 
-def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, mode, nominal=False, counts_nom=None):
+def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, mode, nominal=False, counts_nom=None, lep_pdg=13):
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
   observable = "had" if withPion else "avail"
-  bias = bias_arr(arr, observable, kind=mode, vertex=False)
+  bias = bias_arr(arr, observable, kind=mode, vertex=False, lep_pdg=lep_pdg)
   fScaleFactor = float(np.max(arr['fScaleFactor']))
 
   spec = BIN_SPECS[mode]
   bin_width = spec["bin_width"]
   bins = np.arange(spec["lo"], spec["hi"] + bin_width, step=bin_width)
 
-  weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(bias)
+  weights = make_weights_dxsec_osc(arr, bin_width, observable, filename,
+                                    vertex=False, lep_pdg=lep_pdg,
+                                    fScaleFactor=fScaleFactor)
 
   # Label intentionally drops the pion-mass modifier: the with/without-pion
   # variant is encoded in the output filename, and the user-facing legend
@@ -72,22 +74,38 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, nEvents, withPion, mode, nominal=
 _events = 10000
 
 _PLOT_CONFIGS = [
-    {"withPion": True,  "flavor": "numu",
+    {"withPion": True,  "flavor": "numu",    "lep_pdg": 13,
      "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",
      "title": r"$\nu_{\mu}$, w/ pion mass",
      "stem": "Fig4_DUNE_EnuRecoFSIBias_WithPion_numu"},
-    {"withPion": True,  "flavor": "numubar",
+    {"withPion": True,  "flavor": "numubar", "lep_pdg": 13,
      "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root",
      "title": r"$\bar{\nu}_{\mu}$, w/ pion mass",
      "stem": "Fig4_DUNE_EnuRecoFSIBias_WithPion_numubar"},
-    {"withPion": False, "flavor": "numu",
+    {"withPion": False, "flavor": "numu",    "lep_pdg": 13,
      "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",
      "title": r"$\nu_{\mu}$, w/o pion mass",
      "stem": "Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numu"},
-    {"withPion": False, "flavor": "numubar",
+    {"withPion": False, "flavor": "numubar", "lep_pdg": 13,
      "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root",
      "title": r"$\bar{\nu}_{\mu}$, w/o pion mass",
      "stem": "Fig4_DUNE_EnuRecoFSIBias_WithoutPion_numubar"},
+    {"withPion": True,  "flavor": "nue",     "lep_pdg": 11,
+     "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nue_FSI.flat.root",
+     "title": r"$\nu_{e}$, w/ pion mass",
+     "stem": "Fig4_DUNE_EnuRecoFSIBias_WithPion_nue"},
+    {"withPion": True,  "flavor": "nuebar",  "lep_pdg": 11,
+     "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nueb_FSI.flat.root",
+     "title": r"$\bar{\nu}_{e}$, w/ pion mass",
+     "stem": "Fig4_DUNE_EnuRecoFSIBias_WithPion_nuebar"},
+    {"withPion": False, "flavor": "nue",     "lep_pdg": 11,
+     "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nue_FSI.flat.root",
+     "title": r"$\nu_{e}$, w/o pion mass",
+     "stem": "Fig4_DUNE_EnuRecoFSIBias_WithoutPion_nue"},
+    {"withPion": False, "flavor": "nuebar",  "lep_pdg": 11,
+     "file": "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nueb_FSI.flat.root",
+     "title": r"$\bar{\nu}_{e}$, w/o pion mass",
+     "stem": "Fig4_DUNE_EnuRecoFSIBias_WithoutPion_nuebar"},
 ]
 
 for mode in ("abs", "rel"):
@@ -97,12 +115,12 @@ for mode in ("abs", "rel"):
         counts_nom = plot_Enu_bias_numu(
             ax=ax, ax_ratio=ax_ratio, filename=noFSI_path(cfg["file"]),
             nEvents=_events, withPion=cfg["withPion"], mode=mode,
-            nominal=True,
+            nominal=True, lep_pdg=cfg["lep_pdg"],
         )
         counts_fsi = plot_Enu_bias_numu(
             ax=ax, ax_ratio=ax_ratio, filename=cfg["file"],
             nEvents=_events, withPion=cfg["withPion"], mode=mode,
-            nominal=False, counts_nom=counts_nom,
+            nominal=False, counts_nom=counts_nom, lep_pdg=cfg["lep_pdg"],
         )
 
         spec = BIN_SPECS[mode]

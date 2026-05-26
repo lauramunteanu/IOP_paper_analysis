@@ -36,6 +36,11 @@ def plot_osc_true(ax, ax_ratio, diff_sel, label, color, weights, nominal, counts
 
 
 def plot_EnuReco(filename, nEvents, IsReco):
+    # Bin width: 20 MeV for Eν^QE (Fig 1 paper convention), 50 MeV for
+    # Eν^true (matches T2K flux native binning).
+    global bin_width, bins
+    bin_width = 20 if IsReco else 50
+    bins = np.arange(0, 2000, step=bin_width)
     fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(1, 1), hspace=0.07)
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)

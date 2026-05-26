@@ -16,21 +16,22 @@ BIN_SPECS = {
 }
 
 
-def plot_Enu_bias_numu(ax, ax_ratio, filename, isNub, nEvents, mode, nominal=False, counts_nom=None):
+def plot_Enu_bias_numu(ax, ax_ratio, filename, isNub, nEvents, mode, nominal=False, counts_nom=None, lep_pdg=13):
   # noFSI vs FSI no longer toggled via vertex flag — caller passes a noFSI
   # file when they want the noFSI line (nominal=True) and an FSI file for the
   # FSI overlay. Vertex stack of an FSI file would be biased by NuWro binding-
   # energy bookkeeping at cascade exit, so we read the post-FSI stack of the
   # appropriate file instead.
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
-  diff_sel = bias_arr(arr, "qe", kind=mode)
+  diff_sel = bias_arr(arr, "qe", kind=mode, lep_pdg=lep_pdg)
   fScaleFactor = float(np.max(arr['fScaleFactor']))
   Log(f"  pass {len(diff_sel)} / total {len(arr['Enu_true'])}  (mode={mode} file={filename})")
 
   spec = BIN_SPECS[mode]
   bin_width = spec["bin_width"]
   bins = np.arange(spec["lo"], spec["hi"] + bin_width, step=bin_width)
-  weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(diff_sel)
+  weights = make_weights_dxsec_osc(arr, bin_width, "qe", filename,
+                                    lep_pdg=lep_pdg, fScaleFactor=fScaleFactor)
 
   if nominal:
     color = COL_NOFSI
@@ -71,7 +72,7 @@ def plot_Enu_bias_numu(ax, ax_ratio, filename, isNub, nEvents, mode, nominal=Fal
   return counts
 
 
-def _draw_pair(fname_FSI, flav_tag, isNub, mode, n_events):
+def _draw_pair(fname_FSI, flav_tag, isNub, mode, n_events, lep_pdg=13):
   """Render one (flavour, mode) combination — produces a single PDF."""
   global custom_lines, labels
   custom_lines, labels = [], []
@@ -80,11 +81,12 @@ def _draw_pair(fname_FSI, flav_tag, isNub, mode, n_events):
   fname_noFSI = noFSI_path(fname_FSI)
   counts_nom = plot_Enu_bias_numu(
       ax, ax_ratio, filename=fname_noFSI, isNub=isNub,
-      nEvents=n_events, mode=mode, nominal=True,
+      nEvents=n_events, mode=mode, nominal=True, lep_pdg=lep_pdg,
   )
   counts_fsi = plot_Enu_bias_numu(
       ax, ax_ratio, filename=fname_FSI, isNub=isNub,
       nEvents=n_events, mode=mode, nominal=False, counts_nom=counts_nom,
+      lep_pdg=lep_pdg,
   )
 
   spec = BIN_SPECS[mode]
@@ -107,11 +109,15 @@ def _draw_pair(fname_FSI, flav_tag, isNub, mode, n_events):
 
 
 _events = -1
-_FSI_FILES = {
-    "numubar": "../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root",
-    "numu":    "../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root",
-}
+# Each entry: (flav_tag, FSI-file path, isNub, lep_pdg). Lep_pdg 13 = μ (νμ/ν̄μ
+# samples, νμ→νμ disappearance osc); 11 = e (νe/ν̄e appearance samples, νμ→νe).
+_FLAVOURS = [
+    ("numu",    "../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root",    False, 13),
+    ("numubar", "../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root", True,  13),
+    ("nue",     "../../Remade_April26/nuwro_25031_morestats/HK/HK_nue_FSI.flat.root",     False, 11),
+    ("nuebar",  "../../Remade_April26/nuwro_25031_morestats/HK/HK_nuebar_FSI.flat.root",  True,  11),
+]
 
 for mode in ("abs", "rel"):
-    for flav_tag, fname_FSI in _FSI_FILES.items():
-        _draw_pair(fname_FSI, flav_tag, isNub=(flav_tag == "numubar"), mode=mode, n_events=_events)
+    for flav_tag, fname_FSI, isNub, lep_pdg in _FLAVOURS:
+        _draw_pair(fname_FSI, flav_tag, isNub=isNub, mode=mode, n_events=_events, lep_pdg=lep_pdg)

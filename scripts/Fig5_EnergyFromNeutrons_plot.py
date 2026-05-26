@@ -19,8 +19,8 @@ GROUPS = [
 ]
 
 
-def compute_neutron_data(filename, nEvents):
-    """Per-event (n_neutrons, x = ΣTn/q0, fScaleFactor). After CC0pi-style cuts."""
+def compute_neutron_data(filename, nEvents, lep_pdg=13):
+    """Per-event (n_neutrons, x = ΣTn/q0, fScaleFactor, osc_w). After CC0pi-style cuts."""
     arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
     fScaleFactor = float(arr["fScaleFactor"][0])
 
@@ -37,26 +37,29 @@ def compute_neutron_data(filename, nEvents):
     q0   = (Enu - ELep) * 1000.0
 
     keep = (~bad_event) & (neutron_KE != 0) & (q0 != 0)
+    # Per-event νμ→νμ (or νμ→νe for lep_pdg=11) osc weight on the kept events.
+    osc_fn = osc_weights_mue if lep_pdg == 11 else osc_weights_mumu
+    osc_w = osc_fn(Enu[keep], filename=filename)
     return dict(
         n_neutrons=nneutron_per_evt[keep],
         x=neutron_KE[keep] / q0[keep],
         fScaleFactor=fScaleFactor,
+        osc_w=osc_w,
     )
 
 
 def make_grouped_hists(d):
     """Returns list of histogram arrays, one per group + total."""
-    weight = d["fScaleFactor"] / bin_width
+    base = d["fScaleFactor"] / bin_width
     hists = []
     for label, sel_fn in GROUPS:
         mask = sel_fn(d["n_neutrons"])
         x = d["x"][mask]
-        w = np.full(len(x), weight, dtype=float)
+        w = base * d["osc_w"][mask]
         h, _ = np.histogram(x, bins=bins, weights=w)
         hists.append(h)
     # Total = all events
-    h_tot, _ = np.histogram(d["x"], bins=bins,
-                            weights=np.full(len(d["x"]), weight, dtype=float))
+    h_tot, _ = np.histogram(d["x"], bins=bins, weights=base * d["osc_w"])
     hists.append(h_tot)
     return hists
 
@@ -88,21 +91,26 @@ def plot_grouped(ax, ax_ratio, hists, ymax):
 _events = -1
 
 SAMPLES = [
-    ("DUNE", "numu",    "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root"),
-    ("DUNE", "numubar", "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root"),
-    ("HK",   "numu",    "../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root"),
-    ("HK",   "numubar", "../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root"),
+    # (exp, flav, FSI file path, lep_pdg)
+    ("DUNE", "numu",    "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root",    13),
+    ("DUNE", "numubar", "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root",   13),
+    ("HK",   "numu",    "../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root",        13),
+    ("HK",   "numubar", "../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root",     13),
+    ("DUNE", "nue",     "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nue_FSI.flat.root",     11),
+    ("DUNE", "nuebar",  "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nueb_FSI.flat.root",    11),
+    ("HK",   "nue",     "../../Remade_April26/nuwro_25031_morestats/HK/HK_nue_FSI.flat.root",         11),
+    ("HK",   "nuebar",  "../../Remade_April26/nuwro_25031_morestats/HK/HK_nuebar_FSI.flat.root",      11),
 ]
 
 # For each (exp, flav) pair: compute FSI + noFSI histograms, share y-max,
 # emit two single-panel PDFs (FSI and noFSI) with matching y-scales.
-for exp, flav, fname_FSI in SAMPLES:
+for exp, flav, fname_FSI, lep_pdg in SAMPLES:
     fname_noFSI = noFSI_path(fname_FSI)
 
     # Pass 1: load + bin both files
     pair = {}
     for fsi_state, fname in (("FSI", fname_FSI), ("noFSI", fname_noFSI)):
-        d = compute_neutron_data(fname, _events)
+        d = compute_neutron_data(fname, _events, lep_pdg=lep_pdg)
         pair[fsi_state] = make_grouped_hists(d)
 
     # Shared y-max from the larger of FSI / noFSI Total + group histograms

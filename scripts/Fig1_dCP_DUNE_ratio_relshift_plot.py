@@ -43,17 +43,24 @@ def _step_double_ratio(ax_ratio, variant_ratio, nominal_ratio, color):
 
 
 def plot_ratio(IsReco):
+    # Bin width: 100 MeV for Eν^reco (Fig 1 paper convention), 125 MeV
+    # for Eν^true (matches DUNE flux native binning).
+    global bin_width, bins, centers
+    bin_width = 100.0 if IsReco else 125.0
+    bins = np.arange(0, 6000 + bin_width, step=bin_width)
+    centers = 0.5 * (bins[:-1] + bins[1:])
     fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(1, 1), hspace=0.07)
     plt.sca(ax)
     plt.setp(ax.get_xticklabels(), visible=False)
 
-    f_numu  = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numu_FSI.flat.root"
-    f_nubar = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_numub_FSI.flat.root"
+    f_numu  = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nue_FSI.flat.root"
+    f_nubar = "../../Remade_April26/nuwro_25031_morestats/DUNE/DUNE_nueb_FSI.flat.root"
     arr_numu  = load_arrays(f_numu,  max_events=1_000_000)
     arr_nubar = load_arrays(f_nubar, max_events=1_000_000)
 
-    bias_wo_numu,  bias_with_numu,  cc_numu  = enu_had_arr(arr_numu,  vertex=False)
-    bias_wo_nubar, bias_with_nubar, cc_nubar = enu_had_arr(arr_nubar, vertex=False)
+    # Ratio scripts always load νe / ν̄e appearance samples (primary lepton e).
+    bias_wo_numu,  bias_with_numu,  cc_numu  = enu_had_arr(arr_numu,  vertex=False, lep_pdg=11)
+    bias_wo_nubar, bias_with_nubar, cc_nubar = enu_had_arr(arr_nubar, vertex=False, lep_pdg=11)
     Enu_t_GeV_numu  = ak.to_numpy(arr_numu['Enu_true'])[np.asarray(cc_numu,  dtype=bool)]
     Enu_t_GeV_nubar = ak.to_numpy(arr_nubar['Enu_true'])[np.asarray(cc_nubar, dtype=bool)]
 

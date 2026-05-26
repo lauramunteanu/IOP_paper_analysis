@@ -11,17 +11,17 @@ BIN_SPECS = {
 }
 
 
-def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=False):
+def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=False, lep_pdg=13):
   fig, (ax, ax_ratio) = make_fig_ratio('single_ratio', height_ratios=(3, 1))
   arr = load_arrays(filename, max_events=(None if nEvents == -1 else nEvents))
-  diff_sel = bias_arr(arr, "qe", kind=mode, vertex=vertex)
+  diff_sel = bias_arr(arr, "qe", kind=mode, vertex=vertex, lep_pdg=lep_pdg)
 
   # CCQE vs non-CCQE split on the same CC0pi selection as bias_arr uses.
   # CCQE is the dominant signal channel at HK (~80% of CC0pi); the
   # non-CCQE tail is mostly 2p2h and CC-RES events whose pion was absorbed
   # via FSI -- splitting by Mode (rather than by final-state neutron
   # content) makes that physics directly visible.
-  sel = is_cc0pi_arr(arr, vertex=vertex)
+  sel = is_cc0pi_arr(arr, vertex=vertex, lep_pdg=lep_pdg)
   modes_all = np.abs(np.asarray(arr['Mode']))
   is_ccqe_all = (modes_all == 1)
   is_ccqe = is_ccqe_all[np.asarray(sel, dtype=bool)]
@@ -32,7 +32,10 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=Fal
   bins = np.arange(spec["lo"], spec["hi"] + bin_width, step=bin_width)
   centers = 0.5 * (bins[:-1] + bins[1:])
   fScaleFactor = float(np.max(arr['fScaleFactor']))
-  weights = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(diff_sel)
+  # Full per-event weight array with νμ→νμ (or νμ→νe for lep_pdg=11) osc factor.
+  weights = make_weights_dxsec_osc(arr, bin_width, "qe", filename,
+                                    vertex=vertex, lep_pdg=lep_pdg,
+                                    fScaleFactor=fScaleFactor)
   counts_total, _ = np.histogram(diff_sel, bins=bins, weights=weights)
 
   ax.hist(diff_sel, bins=bins, histtype='step', weights=weights,
@@ -45,7 +48,8 @@ def plot_Enu_bias(filename, label, isNuBar, nEvents, plot_name, mode, vertex=Fal
     if len(vals) == 0:
       sub_counts[is_qe] = np.zeros_like(counts_total)
       continue
-    w = make_weights_dxsec(arr, bin_width, fScaleFactor) * np.ones_like(vals)
+    # Subset weights = total weights sliced by the same CCQE / non-CCQE mask.
+    w = weights[is_ccqe] if is_qe else weights[~is_ccqe]
     ax.hist(vals, bins=bins, histtype='step', weights=w,
             color=color, linewidth=1.4)
     c, _ = np.histogram(vals, bins=bins, weights=w)
@@ -85,9 +89,13 @@ _events = -1
 # loading the noFSI sample sidesteps that).
 _CONFIGS = [
     dict(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_numu_FSI.flat.root"),
-         label=r"no FSI $\nu_{\mu}$", isNuBar=False, plot_name="noFSI_numu"),
+         label=r"no FSI $\nu_{\mu}$", isNuBar=False, plot_name="noFSI_numu", lep_pdg=13),
     dict(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_numubar_FSI.flat.root"),
-         label=r"no FSI $\bar{\nu}_{\mu}$", isNuBar=True, plot_name="noFSI_numubar"),
+         label=r"no FSI $\bar{\nu}_{\mu}$", isNuBar=True, plot_name="noFSI_numubar", lep_pdg=13),
+    dict(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_nue_FSI.flat.root"),
+         label=r"no FSI $\nu_{e}$", isNuBar=False, plot_name="noFSI_nue", lep_pdg=11),
+    dict(filename=noFSI_path("../../Remade_April26/nuwro_25031_morestats/HK/HK_nuebar_FSI.flat.root"),
+         label=r"no FSI $\bar{\nu}_{e}$", isNuBar=True, plot_name="noFSI_nuebar", lep_pdg=11),
 ]
 
 for mode in ("abs", "rel"):
