@@ -66,7 +66,11 @@ EOF
 }
 
 echo "compiling variation tables in $OUT_DIR ..."
-build_one abs
-build_one rel
+# Channel-aware tables (numu / nue × abs / rel) emitted by
+# print_variation_table.py, plus the combined abs+rel table.
+build_one numu_abs
+build_one numu_rel
+build_one nue_abs
+build_one nue_rel
 build_one combined
 echo "all done."

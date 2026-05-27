@@ -34,8 +34,8 @@ from matplotlib.ticker import MultipleLocator
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
-from FlatTreeMod import (load_arrays, bias_arr,  # noqa: E402
-                         is_cc0pi_arr)
+from FlatTreeMod import (load_arrays, bias_arr, osc_weights_mumu, osc_weights_mue,  # noqa: E402
+                         is_cc0pi_arr, bias_sel_arr)
 
 # BW-specific font bump. The BW grid figures sit at 3.5" wide (one half of
 # \textwidth in LaTeX) with a lot of in-figure box content per row, so the
@@ -128,36 +128,60 @@ NUWRO_HK = {
              "noFSI": f"{BASE}/HK/HK_numu_noFSI.flat.root"},
     "numubar": {"FSI":   f"{BASE}/HK/HK_numubar_FSI.flat.root",
                 "noFSI": f"{BASE}/HK/HK_numubar_noFSI.flat.root"},
+    "nue":    {"FSI":   f"{BASE}/HK/HK_nue_FSI.flat.root",
+               "noFSI": f"{BASE}/HK/HK_nue_noFSI.flat.root"},
+    "nuebar": {"FSI":   f"{BASE}/HK/HK_nuebar_FSI.flat.root",
+               "noFSI": f"{BASE}/HK/HK_nuebar_noFSI.flat.root"},
 }
 NUWRO_DUNE = {
     "numu": {"FSI":   f"{BASE}/DUNE/DUNE_numu_FSI.flat.root",
              "noFSI": f"{BASE}/DUNE/DUNE_numu_noFSI.flat.root"},
     "numubar": {"FSI":   f"{BASE}/DUNE/DUNE_numub_FSI.flat.root",
                 "noFSI": f"{BASE}/DUNE/DUNE_numub_noFSI.flat.root"},
+    "nue":    {"FSI":   f"{BASE}/DUNE/DUNE_nue_FSI.flat.root",
+               "noFSI": f"{BASE}/DUNE/DUNE_nue_noFSI.flat.root"},
+    "nuebar": {"FSI":   f"{BASE}/DUNE/DUNE_nueb_FSI.flat.root",
+               "noFSI": f"{BASE}/DUNE/DUNE_nueb_noFSI.flat.root"},
 }
 NUWRO_HK_PIABS = {
     ("numu",    "069"): f"{BASE}/HK/piabs/HK_numu_piabs069_FSI.flat.root",
     ("numu",    "131"): f"{BASE}/HK/piabs/HK_numu_piabs131_FSI.flat.root",
     ("numubar", "069"): f"{BASE}/HK/piabs/HK_numubar_piabs069_FSI.flat.root",
     ("numubar", "131"): f"{BASE}/HK/piabs/HK_numubar_piabs131_FSI.flat.root",
+    ("nue",     "069"): f"{BASE}/HK/piabs/HK_nue_piabs069_FSI.flat.root",
+    ("nue",     "131"): f"{BASE}/HK/piabs/HK_nue_piabs131_FSI.flat.root",
+    ("nuebar",  "069"): f"{BASE}/HK/piabs/HK_nuebar_piabs069_FSI.flat.root",
+    ("nuebar",  "131"): f"{BASE}/HK/piabs/HK_nuebar_piabs131_FSI.flat.root",
 }
 NUWRO_DUNE_PIABS = {
     ("numu",    "069"): f"{BASE}/DUNE/piabs/DUNE_numu_piabs069_FSI.flat.root",
     ("numu",    "131"): f"{BASE}/DUNE/piabs/DUNE_numu_piabs131_FSI.flat.root",
     ("numubar", "069"): f"{BASE}/DUNE/piabs/DUNE_numub_piabs069_FSI.flat.root",
     ("numubar", "131"): f"{BASE}/DUNE/piabs/DUNE_numub_piabs131_FSI.flat.root",
+    ("nue",     "069"): f"{BASE}/DUNE/piabs/DUNE_nue_piabs069_FSI.flat.root",
+    ("nue",     "131"): f"{BASE}/DUNE/piabs/DUNE_nue_piabs131_FSI.flat.root",
+    ("nuebar",  "069"): f"{BASE}/DUNE/piabs/DUNE_nueb_piabs069_FSI.flat.root",
+    ("nuebar",  "131"): f"{BASE}/DUNE/piabs/DUNE_nueb_piabs131_FSI.flat.root",
 }
 NUWRO_HK_MFP = {
     ("numu",    "0p7"): f"{BASE}/HK/ChangeMFP/HK_numu_0p7MFP_FSI.flat.root",
     ("numu",    "1p3"): f"{BASE}/HK/ChangeMFP/HK_numu_1p3MFP_FSI.flat.root",
     ("numubar", "0p7"): f"{BASE}/HK/ChangeMFP/HK_numubar_0p7MFP_FSI.flat.root",
     ("numubar", "1p3"): f"{BASE}/HK/ChangeMFP/HK_numubar_1p3MFP_FSI.flat.root",
+    ("nue",     "0p7"): f"{BASE}/HK/ChangeMFP/HK_nue_0p7MFP_FSI.flat.root",
+    ("nue",     "1p3"): f"{BASE}/HK/ChangeMFP/HK_nue_1p3MFP_FSI.flat.root",
+    ("nuebar",  "0p7"): f"{BASE}/HK/ChangeMFP/HK_nuebar_0p7MFP_FSI.flat.root",
+    ("nuebar",  "1p3"): f"{BASE}/HK/ChangeMFP/HK_nuebar_1p3MFP_FSI.flat.root",
 }
 NUWRO_DUNE_MFP = {
     ("numu",    "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_numu_0p7MFP_FSI.flat.root",
     ("numu",    "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_numu_1p3MFP_FSI.flat.root",
     ("numubar", "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_numub_0p7MFP_FSI.flat.root",
     ("numubar", "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_numub_1p3MFP_FSI.flat.root",
+    ("nue",     "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_nue_0p7MFP_FSI.flat.root",
+    ("nue",     "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_nue_1p3MFP_FSI.flat.root",
+    ("nuebar",  "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_nueb_0p7MFP_FSI.flat.root",
+    ("nuebar",  "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_nueb_1p3MFP_FSI.flat.root",
 }
 GENIE_HK = {
     ("numu", t):    f"{GENIE_FILES_BASE}/HK/GENIE/T2KSK_unosc_FHC_numu_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
@@ -241,29 +265,45 @@ def stats(x, w):
 # observable extraction goes through FlatTreeMod.bias_arr so abs and rel use
 # the same canonical CC0π / CC selections as the parent Fig*_plot.py scripts.
 # ---------------------------------------------------------------------------
-def read_hk(path, mode):
-    """HK QE bias on derived CC0π. Returns (x, w, mode_arr)."""
+def read_hk(path, mode, lep_pdg=13, force_appearance=False):
+    """HK QE bias on derived CC0π. Returns (x, w, mode_arr) where w already
+    includes the νμ→νμ survival (or νμ→νe appearance) weight.
+
+    ``force_appearance=True`` keeps the lep_pdg-driven selection but swaps
+    the osc factor to P(νμ→νe). Used for the GENIE numu-as-νe proxy where
+    real GENIE νe samples don't exist."""
     a = load_arrays(path, max_events=MAX_EVENTS)
-    x = bias_arr(a, "qe", kind=mode, vertex=False)
-    sel = is_cc0pi_arr(a, vertex=False)
-    w = np.asarray(a["fScaleFactor"][sel])
+    x = bias_arr(a, "qe", kind=mode, vertex=False, lep_pdg=lep_pdg)
+    sel = is_cc0pi_arr(a, vertex=False, lep_pdg=lep_pdg)
+    w_xsec = np.asarray(a["fScaleFactor"][sel])
+    Enu_t  = np.asarray(a['Enu_true'])[sel]
+    if force_appearance:
+        osc_fn = osc_weights_mue
+    else:
+        osc_fn = osc_weights_mue if lep_pdg == 11 else osc_weights_mumu
+    osc_w  = osc_fn(Enu_t, filename=path)
+    w = w_xsec * osc_w
     mode_arr = np.asarray(a["Mode"][sel])
     return x, w, mode_arr
 
 
-def read_dune(path, mode):
-    """DUNE calorimetric bias, two definitions, on CC inclusive.
-    Returns (x_tpi, x_epi, w, mode_arr).
-    """
+def read_dune(path, mode, lep_pdg=13, force_appearance=False):
+    """DUNE calorimetric bias, two definitions. Returns (x_tpi, x_epi, w,
+    mode_arr) with osc-weighted w. Selection matches bias_arr (cc &
+    |PDGLep|==lep_pdg). See ``read_hk`` for the ``force_appearance`` kwarg."""
     a = load_arrays(path, max_events=MAX_EVENTS)
-    x_tpi = bias_arr(a, "had",   kind=mode, vertex=False)
-    x_epi = bias_arr(a, "avail", kind=mode, vertex=False)
-    # Must match the CC selection that bias_arr applies internally (cc &
-    # |PDGLep|==13) so w / mode_arr have the same length as x_tpi / x_epi.
-    is_cc = (np.asarray(a["cc"], dtype=bool)
-             & (np.abs(np.asarray(a["PDGLep"])) == 13))
-    w = np.asarray(a["fScaleFactor"][is_cc])
-    mode_arr = np.asarray(a["Mode"][is_cc])
+    x_tpi = bias_arr(a, "had",   kind=mode, vertex=False, lep_pdg=lep_pdg)
+    x_epi = bias_arr(a, "avail", kind=mode, vertex=False, lep_pdg=lep_pdg)
+    sel = bias_sel_arr(a, "had", vertex=False, lep_pdg=lep_pdg)
+    w_xsec = np.asarray(a["fScaleFactor"])[sel]
+    Enu_t  = np.asarray(a['Enu_true'])[sel]
+    if force_appearance:
+        osc_fn = osc_weights_mue
+    else:
+        osc_fn = osc_weights_mue if lep_pdg == 11 else osc_weights_mumu
+    osc_w  = osc_fn(Enu_t, filename=path)
+    w = w_xsec * osc_w
+    mode_arr = np.asarray(a["Mode"])[sel]
     return x_tpi, x_epi, w, mode_arr
 
 
@@ -357,48 +397,54 @@ def save_strip_legend(handles, fname, fig_w=12.0, fig_h=0.5):
 _CACHE = {}
 
 
-def get_hk(path, mode):
+def get_hk(path, mode, lep_pdg=13, force_appearance=False):
     p = resolve_path(path)
     if p is None:
         return None
-    if ("hk", p, mode) not in _CACHE:
-        print(f"  deriving hk[{mode}] from: {os.path.basename(p)}")
-        _CACHE[("hk", p, mode)] = read_hk(p, mode)
-    return _CACHE[("hk", p, mode)]
+    key = ("hk", p, mode, lep_pdg, force_appearance)
+    if key not in _CACHE:
+        tag = f"lep={lep_pdg}{',app' if force_appearance else ''}"
+        print(f"  deriving hk[{mode}, {tag}] from: {os.path.basename(p)}")
+        _CACHE[key] = read_hk(p, mode, lep_pdg=lep_pdg,
+                              force_appearance=force_appearance)
+    return _CACHE[key]
 
 
-def get_dune(path, mode):
+def get_dune(path, mode, lep_pdg=13, force_appearance=False):
     p = resolve_path(path)
     if p is None:
         return None
-    if ("dune", p, mode) not in _CACHE:
-        print(f"  deriving dune[{mode}] from: {os.path.basename(p)}")
-        _CACHE[("dune", p, mode)] = read_dune(p, mode)
-    return _CACHE[("dune", p, mode)]
+    key = ("dune", p, mode, lep_pdg, force_appearance)
+    if key not in _CACHE:
+        tag = f"lep={lep_pdg}{',app' if force_appearance else ''}"
+        print(f"  deriving dune[{mode}, {tag}] from: {os.path.basename(p)}")
+        _CACHE[key] = read_dune(p, mode, lep_pdg=lep_pdg,
+                                force_appearance=force_appearance)
+    return _CACHE[key]
 
 
-def get_obs(path, obs_kind, mode):
+def get_obs(path, obs_kind, mode, lep_pdg=13, force_appearance=False):
     """Generic per-observable getter. obs_kind in {hk_qe, dune_epi, dune_tpi}.
     Returns (x, w) or None if file unresolvable."""
     if obs_kind == "hk_qe":
-        out = get_hk(path, mode)
+        out = get_hk(path, mode, lep_pdg=lep_pdg, force_appearance=force_appearance)
         if out is None: return None
         x, w, _ = out
         return x, w
-    out = get_dune(path, mode)
+    out = get_dune(path, mode, lep_pdg=lep_pdg, force_appearance=force_appearance)
     if out is None: return None
     x_tpi, x_epi, w, _ = out
     return (x_tpi, w) if obs_kind == "dune_tpi" else (x_epi, w)
 
 
-def get_obs_with_mode(path, obs_kind, mode):
+def get_obs_with_mode(path, obs_kind, mode, lep_pdg=13, force_appearance=False):
     """Like get_obs but also returns the per-event Mode array.
     Used by the validation plot to highlight |Mode|==16."""
     if obs_kind == "hk_qe":
-        out = get_hk(path, mode)
+        out = get_hk(path, mode, lep_pdg=lep_pdg, force_appearance=force_appearance)
         if out is None: return None
         return out  # already (x, w, mode_arr)
-    out = get_dune(path, mode)
+    out = get_dune(path, mode, lep_pdg=lep_pdg, force_appearance=force_appearance)
     if out is None: return None
     x_tpi, x_epi, w, mode_arr = out
     return ((x_tpi, w, mode_arr) if obs_kind == "dune_tpi"
@@ -417,7 +463,8 @@ OBS_GROUPS = [("hk_qe", "hk"),
               ("dune_tpi", "dune_tpi")]
 
 
-def _make_figure(fname_stem, flavour, mode, variants, group_label_suffix=""):
+def _make_figure(fname_stem, flavour, mode, variants, group_label_suffix="",
+                  lep_pdg=13, force_appearance=False):
     obs_keys = [k for k, _ in OBS_GROUPS]
     n_groups = len(obs_keys)
     rows_per_group = len(variants)
@@ -432,7 +479,10 @@ def _make_figure(fname_stem, flavour, mode, variants, group_label_suffix=""):
     bottom_margin = 0.20
     group_pitch = (rows_per_group - 1) * sub_pitch + inter_group_gap
     half = sub_pitch / 2 * 0.85
-    show_ylabels = (flavour == "numu")
+    # The left-hand flavour in each LaTeX side-by-side pair carries the
+    # y-labels: numu (paired with numubar) and nue (paired with nuebar,
+    # separate canvas added 2026-05-21).
+    show_ylabels = flavour in ("numu", "nue")
     # Figure height scales with total data-y span plus a fixed allowance for
     # the x-axis label, ticks and any padding.
     data_span = ((n_groups - 1) * group_pitch
@@ -447,7 +497,8 @@ def _make_figure(fname_stem, flavour, mode, variants, group_label_suffix=""):
         nbins, hrange = hist_params_for(ok, mode)
         for vi, v in enumerate(variants):
             path = v["paths"].get(ok)
-            res = get_obs(path, ok, mode) if path else None
+            res = get_obs(path, ok, mode, lep_pdg=lep_pdg,
+                          force_appearance=force_appearance) if path else None
             if res is None:
                 continue
             x, w = res
@@ -484,7 +535,7 @@ def _make_figure(fname_stem, flavour, mode, variants, group_label_suffix=""):
 # ---------------------------------------------------------------------------
 # Fig 8 -- FSI vs noFSI, NuWro SF
 # ---------------------------------------------------------------------------
-def make_fsi_compare_figure(flavour, mode):
+def make_fsi_compare_figure(flavour, mode, lep_pdg=13):
     variants = [
         {"label": "with FSI", "color": COL_GREY, "paths": {
             "hk_qe":    NUWRO_HK[flavour]["FSI"],
@@ -497,13 +548,13 @@ def make_fsi_compare_figure(flavour, mode):
             "dune_tpi": NUWRO_DUNE[flavour]["noFSI"],
         }},
     ]
-    _make_figure("Fig8_FSIvsNoFSI", flavour, mode, variants)
+    _make_figure("Fig8_FSIvsNoFSI", flavour, mode, variants, lep_pdg=lep_pdg)
 
 
 # ---------------------------------------------------------------------------
 # Fig 9 -- piabs grid (kaskada_piN_abs_scale = 0.69 / 1.0 / 1.31)
 # ---------------------------------------------------------------------------
-def make_pi_abs_figure(flavour, mode):
+def make_pi_abs_figure(flavour, mode, lep_pdg=13):
     variants = [
         {"label": r"$\pi_{\rm abs}$ +31\%", "color": COL_VERMILION, "paths": {
             "hk_qe":    NUWRO_HK_PIABS[(flavour, "131")],
@@ -521,13 +572,13 @@ def make_pi_abs_figure(flavour, mode):
             "dune_tpi": NUWRO_DUNE_PIABS[(flavour, "069")],
         }},
     ]
-    _make_figure("Fig9_PiAbs", flavour, mode, variants)
+    _make_figure("Fig9_PiAbs", flavour, mode, variants, lep_pdg=lep_pdg)
 
 
 # ---------------------------------------------------------------------------
 # Fig 10 -- NN_mfp grid (kaskada_NN_mfp_scale = 0.7 / 1.0 / 1.3)
 # ---------------------------------------------------------------------------
-def make_mfp_compare_figure(flavour, mode):
+def make_mfp_compare_figure(flavour, mode, lep_pdg=13):
     variants = [
         {"label": r"$0.7 \times \rm MFP$", "color": COL_VERMILION, "paths": {
             "hk_qe":    NUWRO_HK_MFP[(flavour, "0p7")],
@@ -545,31 +596,44 @@ def make_mfp_compare_figure(flavour, mode):
             "dune_tpi": NUWRO_DUNE_MFP[(flavour, "1p3")],
         }},
     ]
-    _make_figure("Fig10_MFP", flavour, mode, variants)
+    _make_figure("Fig10_MFP", flavour, mode, variants, lep_pdg=lep_pdg)
 
 
 # ---------------------------------------------------------------------------
-# Fig 11 -- GENIE cascade tunes (G18_10a/b/c/d)
+# Fig 11 -- GENIE cascade tunes (G18_10a/b/c/d). For the νe/ν̄e channel
+# real GENIE νe files don't exist; we proxy with the GENIE νμ/ν̄μ files and
+# apply force_appearance to reweight per-event as νμ→νe (events still have
+# μ in the final state — bias kinematics are νμ-CC).
 # ---------------------------------------------------------------------------
-def make_cascade_compare_figure(flavour, mode):
+def make_cascade_compare_figure(flavour, mode, lep_pdg=13, force_appearance=False):
     tunes = ["10a", "10b", "10c", "10d"]
+    # When proxying νe channel through νμ GENIE files, redirect the path
+    # lookups but keep the figure's flavour label as the requested νe/ν̄e.
+    path_flav = {"nue": "numu", "nuebar": "numubar"}.get(flavour, flavour)
     variants = [
         {"label": GENIE_LABELS[t], "color": CASCADE_COLORS[t], "paths": {
-            "hk_qe":    GENIE_HK[(flavour, t)],
-            "dune_epi": GENIE_DUNE[(flavour, t)],
-            "dune_tpi": GENIE_DUNE[(flavour, t)],
+            "hk_qe":    GENIE_HK[(path_flav, t)],
+            "dune_epi": GENIE_DUNE[(path_flav, t)],
+            "dune_tpi": GENIE_DUNE[(path_flav, t)],
         }}
         for t in tunes
     ]
-    _make_figure("Fig11_GENIE", flavour, mode, variants)
+    _make_figure("Fig11_GENIE", flavour, mode, variants,
+                 lep_pdg=lep_pdg, force_appearance=force_appearance)
 
 
 # ---------------------------------------------------------------------------
-# Fig 12 -- NEUT EDRMF vs RPWIA
+# Fig 12 -- NEUT EDRMF vs RPWIA.  Real NEUT samples exist only for FHC νμ.
+# For the νe channel we proxy through the numu NEUT files (events have μ in
+# the final state — bias kinematics are νμ-CC, weighting is νμ→νe).  For
+# ν̄e the proxy isn't available since no numubar NEUT samples exist; the
+# nuebar canvas falls back to the existing None handling and emits empty
+# rows in that case.
 # ---------------------------------------------------------------------------
-def make_edrmf_compare_figure(flavour, mode):
-    hk_key = f"hk_{flavour}"
-    dune_key = f"dune_{flavour}"
+def make_edrmf_compare_figure(flavour, mode, lep_pdg=13, force_appearance=False):
+    path_flav = {"nue": "numu", "nuebar": "numubar"}.get(flavour, flavour)
+    hk_key = f"hk_{path_flav}"
+    dune_key = f"dune_{path_flav}"
     variants = [
         {"label": "EDRMF", "color": COL_GREY, "paths": {
             "hk_qe":    NEUT_EDRMF[hk_key],
@@ -582,7 +646,8 @@ def make_edrmf_compare_figure(flavour, mode):
             "dune_tpi": NEUT_RPWIA[dune_key],
         }},
     ]
-    _make_figure("Fig12_EDRMF", flavour, mode, variants)
+    _make_figure("Fig12_EDRMF", flavour, mode, variants,
+                 lep_pdg=lep_pdg, force_appearance=force_appearance)
 
 
 # ---------------------------------------------------------------------------
@@ -730,6 +795,28 @@ if __name__ == "__main__":
             make_cascade_compare_figure(flavour, mode)
             print(f"=== {flavour}[{mode}] NEUT EDRMF vs RPWIA ===")
             make_edrmf_compare_figure(flavour, mode)
+        # νe / ν̄e appearance samples — lep_pdg=11 routes the CC0π
+        # selection to electron-final-state and the osc weight to
+        # P(νμ→νe). Real νe samples exist for FSI / piabs / NN_mfp.
+        # GENIE νe files don't exist: we proxy through the νμ GENIE files
+        # with force_appearance=True (events have μ in the final state —
+        # bias kinematics are νμ-CC, weighting is appearance-flux).
+        # EDRMF/RPWIA νe samples also don't exist and aren't proxied here.
+        for flavour in ("nue", "nuebar"):
+            print(f"=== {flavour}[{mode}] FSI vs noFSI ===")
+            make_fsi_compare_figure(flavour, mode, lep_pdg=11)
+            print(f"=== {flavour}[{mode}] pi-abs ===")
+            make_pi_abs_figure(flavour, mode, lep_pdg=11)
+            print(f"=== {flavour}[{mode}] NN_mfp ===")
+            make_mfp_compare_figure(flavour, mode, lep_pdg=11)
+            print(f"=== {flavour}[{mode}] GENIE cascade tunes (numu proxy) ===")
+            make_cascade_compare_figure(flavour, mode, lep_pdg=13,
+                                         force_appearance=True)
+            # EDRMF/RPWIA: real NEUT samples only for FHC νμ. Proxy nue
+            # through numu; nuebar canvas gets None paths (empty rows).
+            print(f"=== {flavour}[{mode}] NEUT EDRMF vs RPWIA (numu proxy) ===")
+            make_edrmf_compare_figure(flavour, mode, lep_pdg=13,
+                                       force_appearance=True)
     print("\n=== standalone legends ===")
     _save_all_legends()
     print("\nDONE")

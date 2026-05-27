@@ -27,7 +27,8 @@ import awkward as ak
 _SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
-from FlatTreeMod import load_arrays, bias_arr, is_cc0pi_arr  # noqa: E402
+from FlatTreeMod import (load_arrays, bias_arr, is_cc0pi_arr,  # noqa: E402
+                         osc_weights_mumu, osc_weights_mue, bias_sel_arr)
 
 # ---------------------------------------------------------------------------
 # Configuration (kept in sync with fsi_iop_plots.py)
@@ -57,36 +58,60 @@ NUWRO_HK = {
                 "noFSI": f"{BASE}/HK/HK_numu_noFSI.flat.root"},
     "numubar": {"FSI":   f"{BASE}/HK/HK_numubar_FSI.flat.root",
                 "noFSI": f"{BASE}/HK/HK_numubar_noFSI.flat.root"},
+    "nue":     {"FSI":   f"{BASE}/HK/HK_nue_FSI.flat.root",
+                "noFSI": f"{BASE}/HK/HK_nue_noFSI.flat.root"},
+    "nuebar":  {"FSI":   f"{BASE}/HK/HK_nuebar_FSI.flat.root",
+                "noFSI": f"{BASE}/HK/HK_nuebar_noFSI.flat.root"},
 }
 NUWRO_DUNE = {
     "numu":    {"FSI":   f"{BASE}/DUNE/DUNE_numu_FSI.flat.root",
                 "noFSI": f"{BASE}/DUNE/DUNE_numu_noFSI.flat.root"},
     "numubar": {"FSI":   f"{BASE}/DUNE/DUNE_numub_FSI.flat.root",
                 "noFSI": f"{BASE}/DUNE/DUNE_numub_noFSI.flat.root"},
+    "nue":     {"FSI":   f"{BASE}/DUNE/DUNE_nue_FSI.flat.root",
+                "noFSI": f"{BASE}/DUNE/DUNE_nue_noFSI.flat.root"},
+    "nuebar":  {"FSI":   f"{BASE}/DUNE/DUNE_nueb_FSI.flat.root",
+                "noFSI": f"{BASE}/DUNE/DUNE_nueb_noFSI.flat.root"},
 }
 NUWRO_HK_PIABS = {
     ("numu",    "069"): f"{BASE}/HK/piabs/HK_numu_piabs069_FSI.flat.root",
     ("numu",    "131"): f"{BASE}/HK/piabs/HK_numu_piabs131_FSI.flat.root",
     ("numubar", "069"): f"{BASE}/HK/piabs/HK_numubar_piabs069_FSI.flat.root",
     ("numubar", "131"): f"{BASE}/HK/piabs/HK_numubar_piabs131_FSI.flat.root",
+    ("nue",     "069"): f"{BASE}/HK/piabs/HK_nue_piabs069_FSI.flat.root",
+    ("nue",     "131"): f"{BASE}/HK/piabs/HK_nue_piabs131_FSI.flat.root",
+    ("nuebar",  "069"): f"{BASE}/HK/piabs/HK_nuebar_piabs069_FSI.flat.root",
+    ("nuebar",  "131"): f"{BASE}/HK/piabs/HK_nuebar_piabs131_FSI.flat.root",
 }
 NUWRO_DUNE_PIABS = {
     ("numu",    "069"): f"{BASE}/DUNE/piabs/DUNE_numu_piabs069_FSI.flat.root",
     ("numu",    "131"): f"{BASE}/DUNE/piabs/DUNE_numu_piabs131_FSI.flat.root",
     ("numubar", "069"): f"{BASE}/DUNE/piabs/DUNE_numub_piabs069_FSI.flat.root",
     ("numubar", "131"): f"{BASE}/DUNE/piabs/DUNE_numub_piabs131_FSI.flat.root",
+    ("nue",     "069"): f"{BASE}/DUNE/piabs/DUNE_nue_piabs069_FSI.flat.root",
+    ("nue",     "131"): f"{BASE}/DUNE/piabs/DUNE_nue_piabs131_FSI.flat.root",
+    ("nuebar",  "069"): f"{BASE}/DUNE/piabs/DUNE_nueb_piabs069_FSI.flat.root",
+    ("nuebar",  "131"): f"{BASE}/DUNE/piabs/DUNE_nueb_piabs131_FSI.flat.root",
 }
 NUWRO_HK_MFP = {
     ("numu",    "0p7"): f"{BASE}/HK/ChangeMFP/HK_numu_0p7MFP_FSI.flat.root",
     ("numu",    "1p3"): f"{BASE}/HK/ChangeMFP/HK_numu_1p3MFP_FSI.flat.root",
     ("numubar", "0p7"): f"{BASE}/HK/ChangeMFP/HK_numubar_0p7MFP_FSI.flat.root",
     ("numubar", "1p3"): f"{BASE}/HK/ChangeMFP/HK_numubar_1p3MFP_FSI.flat.root",
+    ("nue",     "0p7"): f"{BASE}/HK/ChangeMFP/HK_nue_0p7MFP_FSI.flat.root",
+    ("nue",     "1p3"): f"{BASE}/HK/ChangeMFP/HK_nue_1p3MFP_FSI.flat.root",
+    ("nuebar",  "0p7"): f"{BASE}/HK/ChangeMFP/HK_nuebar_0p7MFP_FSI.flat.root",
+    ("nuebar",  "1p3"): f"{BASE}/HK/ChangeMFP/HK_nuebar_1p3MFP_FSI.flat.root",
 }
 NUWRO_DUNE_MFP = {
     ("numu",    "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_numu_0p7MFP_FSI.flat.root",
     ("numu",    "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_numu_1p3MFP_FSI.flat.root",
     ("numubar", "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_numub_0p7MFP_FSI.flat.root",
     ("numubar", "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_numub_1p3MFP_FSI.flat.root",
+    ("nue",     "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_nue_0p7MFP_FSI.flat.root",
+    ("nue",     "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_nue_1p3MFP_FSI.flat.root",
+    ("nuebar",  "0p7"): f"{BASE}/DUNE/ChangeMFP/DUNE_nueb_0p7MFP_FSI.flat.root",
+    ("nuebar",  "1p3"): f"{BASE}/DUNE/ChangeMFP/DUNE_nueb_1p3MFP_FSI.flat.root",
 }
 GENIE_HK = {
     ("numu",    t): f"{GENIE_FILES_BASE}/HK/GENIE/T2KSK_unosc_FHC_numu_H2O_GENIEv3_G18_{t}_00_000_1M_0000_NUISFLAT.root"
@@ -123,7 +148,12 @@ OBS_LABELS_LATEX = {
     "dune_epi": r"DUNE $E_{\nu}^{\mathrm{avail}}$",
     "dune_tpi": r"DUNE $E_{\nu}^{\mathrm{had}}$",
 }
-FLAV_LATEX = {"numu": r"$\nu_\mu$", "numubar": r"$\bar\nu_\mu$"}
+FLAV_LATEX = {
+    "numu":    r"$\nu_\mu$",
+    "numubar": r"$\bar\nu_\mu$",
+    "nue":     r"$\nu_e$",
+    "nuebar":  r"$\bar\nu_e$",
+}
 EXP_BY_OBS = {"hk_qe": "hk", "dune_epi": "dune", "dune_tpi": "dune"}
 
 
@@ -156,40 +186,55 @@ def weighted_mean(x, w):
 # Per-observable readers go through FlatTreeMod.bias_arr so the abs / rel
 # distinction is honoured uniformly.
 # ---------------------------------------------------------------------------
-def _read_hk(path, mode):
+def _read_hk(path, mode, lep_pdg=13, force_appearance=False):
     a = load_arrays(path, max_events=MAX_EVENTS)
-    x = bias_arr(a, "qe", kind=mode, vertex=False)
-    sel = is_cc0pi_arr(a, vertex=False)
-    w = np.asarray(a["fScaleFactor"][sel])
+    x = bias_arr(a, "qe", kind=mode, vertex=False, lep_pdg=lep_pdg)
+    sel = is_cc0pi_arr(a, vertex=False, lep_pdg=lep_pdg)
+    w_xsec = np.asarray(a["fScaleFactor"][sel])
+    Enu_t  = np.asarray(a['Enu_true'])[sel]
+    # force_appearance: events have μ final state (lep_pdg=13) but the osc
+    # weight is the νμ→νe appearance probability anyway. Used by the GENIE
+    # numu-as-nue proxy — no real νe GENIE files exist.
+    if force_appearance:
+        osc_fn = osc_weights_mue
+    else:
+        osc_fn = osc_weights_mue if lep_pdg == 11 else osc_weights_mumu
+    w = w_xsec * osc_fn(Enu_t, filename=path)
     return x, w
 
 
-def _read_dune(path, mode, observable):
+def _read_dune(path, mode, observable, lep_pdg=13, force_appearance=False):
     """observable in {'had', 'avail'}."""
     a = load_arrays(path, max_events=MAX_EVENTS)
-    x = bias_arr(a, observable, kind=mode, vertex=False)
-    # Match bias_arr's internal CC selection (cc & |PDGLep|==13).
-    sel = (np.asarray(a["cc"], dtype=bool)
-           & (np.abs(np.asarray(a["PDGLep"])) == 13))
-    w = np.asarray(a["fScaleFactor"][sel])
+    x = bias_arr(a, observable, kind=mode, vertex=False, lep_pdg=lep_pdg)
+    sel = bias_sel_arr(a, observable, vertex=False, lep_pdg=lep_pdg)
+    w_xsec = np.asarray(a["fScaleFactor"])[sel]
+    Enu_t  = np.asarray(a['Enu_true'])[sel]
+    if force_appearance:
+        osc_fn = osc_weights_mue
+    else:
+        osc_fn = osc_weights_mue if lep_pdg == 11 else osc_weights_mumu
+    w = w_xsec * osc_fn(Enu_t, filename=path)
     return x, w
 
 
 _CACHE = {}
 
 
-def get_xw(path, obs_key, mode):
+def get_xw(path, obs_key, mode, lep_pdg=13, force_appearance=False):
     """Returns (x, w) or None if file unresolvable."""
     p = resolve_path(path)
     if p is None:
         return None
-    key = (p, obs_key, mode)
+    key = (p, obs_key, mode, lep_pdg, force_appearance)
     if key not in _CACHE:
         if obs_key == "hk_qe":
-            _CACHE[key] = _read_hk(p, mode)
+            _CACHE[key] = _read_hk(p, mode, lep_pdg=lep_pdg,
+                                    force_appearance=force_appearance)
         else:
             observable = "had" if obs_key == "dune_tpi" else "avail"
-            _CACHE[key] = _read_dune(p, mode, observable)
+            _CACHE[key] = _read_dune(p, mode, observable, lep_pdg=lep_pdg,
+                                      force_appearance=force_appearance)
     return _CACHE[key]
 
 
@@ -221,12 +266,22 @@ def mfp_paths(flav, obs_key, scale):
 
 
 def genie_paths(flav, obs_key, tune):
-    return _hk_or_dune(obs_key, GENIE_HK[(flav, tune)], GENIE_DUNE[(flav, tune)])
+    # Real GENIE νe / ν̄e cascade samples don't exist for this paper.
+    # Proxy: read the matching GENIE νμ / ν̄μ file and reweight per-event as
+    # νμ→νe appearance (handled by force_appearance=True in the main loop).
+    # The events still have μ in the final state — this captures the cascade-
+    # model spread under νe-appearance flux weighting only.
+    src_flav = {"nue": "numu", "nuebar": "numubar"}.get(flav, flav)
+    return _hk_or_dune(obs_key, GENIE_HK[(src_flav, tune)], GENIE_DUNE[(src_flav, tune)])
 
 
 def edrmf_paths(flav, obs_key, kind):
+    # Real NEUT EDRMF/RPWIA samples exist only for FHC νμ. For the νe
+    # channel proxy through the numu NEUT files (force_appearance=True in
+    # selection_for). No numubar NEUT samples exist, so ν̄e stays empty.
     catalogue = NEUT_EDRMF if kind == "EDRMF" else NEUT_RPWIA
-    return catalogue[(flav, "hk")] if obs_key == "hk_qe" else catalogue[(flav, "dune")]
+    src_flav = {"nue": "numu", "nuebar": "numubar"}.get(flav, flav)
+    return catalogue[(src_flav, "hk")] if obs_key == "hk_qe" else catalogue[(src_flav, "dune")]
 
 
 CATEGORIES = [
@@ -251,13 +306,15 @@ CATEGORIES = [
 # ---------------------------------------------------------------------------
 # Cell computation: mean-driven pair selection
 # ---------------------------------------------------------------------------
-def category_row(variants, path_fn, flav, obs_key, mode):
+def category_row(variants, path_fn, flav, obs_key, mode, lep_pdg=13,
+                 force_appearance=False):
     """Pick the (max_mean, min_mean) variant pair; report median and mean
     range for THAT pair."""
     medians, means = [], []
     for v in variants:
         path = path_fn(flav, obs_key, v)
-        res = get_xw(path, obs_key, mode)
+        res = get_xw(path, obs_key, mode, lep_pdg=lep_pdg,
+                     force_appearance=force_appearance)
         if res is None:
             continue
         x, w = res
@@ -302,35 +359,23 @@ def fmt(v, thresh, mode):
 # Captions for the two tables. Both use `Hyper-K' / `DUNE' / `INC model var.'
 # / `Nuc. Pot.' terminology in the paper text. The abs caption mentions the
 # 5 / 15 MeV thresholds; the rel caption swaps that for the 0.5% common one.
-_CAPTION_ABS = (
-    r"The shift in the mean and median neutrino energy estimation bias due to "
-    r"different FSI variations for the Hyper-K and DUNE neutrino and antineutrino "
-    r"cases. The numbers reported for the INC model variation is derived from "
-    r"the two INC models that give the largest spread in the mean. Red boxes "
-    r"indicate that the variation is larger than 5 MeV or 15 MeV for the "
-    r"Hyper-K and DUNE cases respectively, which is broadly indicative of how "
-    r"well the neutrino energy reconstruction scale must be controlled (see "
-    r"\autoref{sec:enurec}). ``Nuc. Pot.'' stands for the nuclear potential "
-    r"considered in \autoref{subsec:beyondcasc}, for which the table reports a "
-    r"shift derived considering only CCQE interactions."
-)
-_CAPTION_REL = (
-    r"The shift in the mean and median neutrino energy estimation bias "
-    r"(expressed as a fraction of $E_\nu^{\rm true}$, in percent) due to "
-    r"different FSI variations for the Hyper-K and DUNE neutrino and antineutrino "
-    r"cases. The numbers reported for the INC model variation is derived from "
-    r"the two INC models that give the largest spread in the mean. Red boxes "
-    r"indicate that the variation is larger than $0.5\%$, which is broadly "
-    r"indicative of how well the neutrino energy reconstruction scale must be "
-    r"controlled (see \autoref{sec:enurec}). ``Nuc. Pot.'' stands for the "
-    r"nuclear potential considered in \autoref{subsec:beyondcasc}, for which "
-    r"the table reports a shift derived considering only CCQE interactions."
-)
+_CAPTION_ABS = r"The maximum shift in the mean and median neutrino energy estimation bias due to different FSI variations for the Hyper-K and DUNE neutrino and antineutrino cases. The numbers reported for the INC model variation is derived from the two INC models that give the largest spread in the mean. Red boxes indicate that the variation is larger than 5 MeV or 15 MeV for the Hyper-K and DUNE cases respectively, which is broadly indicative of how well the neutrino energy reconstruction scale must be controlled (see \autoref{sec:enurec}). ``Nuc. Pot.'' stands for the nuclear potential considered in \autoref{subsec:beyondcasc}, for which the table reports a shift derived considering only CCQE interactions."
+
+_CAPTION_REL = r"The maximum shift in the mean and median neutrino energy estimation bias (expressed as a fraction of $E_\nu^{\rm true}$, in percent) due to different FSI variations for the Hyper-K and DUNE neutrino and antineutrino cases. The numbers reported for the INC model variation is derived from the two INC models that give the largest spread in the mean. Red boxes indicate that the variation is larger than $0.5\%$, which is broadly indicative of how well the neutrino energy reconstruction scale must be controlled (see \autoref{sec:enurec}). ``Nuc. Pot.'' stands for the nuclear potential considered in \autoref{subsec:beyondcasc}, for which the table reports a shift derived considering only CCQE interactions."
 CAPTION_BY_MODE = {"abs": _CAPTION_ABS, "rel": _CAPTION_REL}
 LABEL_BY_MODE   = {"abs": r"tab:FSIVar",  "rel": r"tab:FSIVar_rel"}
 
 
-def emit_table(mode, rows, out_path):
+def _label_for(mode, flavours):
+    """LaTeX label for the (mode, flavours) combination. Distinct per channel."""
+    if flavours == ("numu", "numubar"):
+        return LABEL_BY_MODE[mode]
+    if flavours == ("nue", "nuebar"):
+        return f"{LABEL_BY_MODE[mode]}_nue"
+    return f"{LABEL_BY_MODE[mode]}_{'_'.join(flavours)}"
+
+
+def emit_table(mode, rows, out_path, flavours=("numu", "numubar")):
     """Build the LaTeX table for one bias mode and write it to out_path.
 
     The emitted .tex is a full ``\\begin{table}[tb]`` block wrapping the
@@ -377,7 +422,7 @@ def emit_table(mode, rows, out_path):
     lines.append(" & ".join(units_row) + r" \\")
     lines.append(r"\midrule")
 
-    for flav_idx, flav in enumerate(["numu", "numubar"]):
+    for flav_idx, flav in enumerate(flavours):
         if flav_idx > 0:
             lines.append(r"\midrule")
         for obs_idx, obs_key in enumerate(OBS_ORDER):
@@ -402,7 +447,7 @@ def emit_table(mode, rows, out_path):
     lines.append(r"\end{tabular}")
     lines.append(r"\normalsize")
     lines.append(rf"\caption{{{CAPTION_BY_MODE[mode]}}}")
-    lines.append(rf"\label{{{LABEL_BY_MODE[mode]}}}")
+    lines.append(rf"\label{{{_label_for(mode, flavours)}}}")
     lines.append(r"\end{table}")
 
     content = "\n".join(lines) + "\n"
@@ -412,21 +457,7 @@ def emit_table(mode, rows, out_path):
 
 
 # Combined-table caption mentions both threshold conventions in one breath.
-_CAPTION_COMBINED = (
-    r"The shift in the mean and median neutrino energy estimation bias due to "
-    r"different FSI variations for the Hyper-K and DUNE neutrino and "
-    r"antineutrino cases. The top half reports the absolute shift in MeV, and "
-    r"the bottom half the same shift expressed as a fraction of "
-    r"$E_\nu^{\rm true}$ (in percent). The numbers reported for the INC model "
-    r"variation are derived from the two INC models that give the largest "
-    r"spread in the mean. Red boxes indicate that the variation is larger "
-    r"than 5\,MeV / 15\,MeV (absolute, Hyper-K and DUNE respectively) or "
-    r"$0.5\%$ (relative), which is broadly indicative of how well the "
-    r"neutrino energy reconstruction scale must be controlled (see "
-    r"\autoref{sec:enurec}). ``Nuc. Pot.'' stands for the nuclear potential "
-    r"considered in \autoref{subsec:beyondcasc}, for which the table reports "
-    r"a shift derived considering only CCQE interactions."
-)
+_CAPTION_COMBINED = r"The shift in the mean and median neutrino energy estimation bias due to different FSI variations for the Hyper-K and DUNE neutrino and antineutrino cases. The top half reports the absolute shift in MeV, and the bottom half the same shift expressed as a fraction of $E_\nu^{\rm true}$ (in percent). The numbers reported for the INC model variation are derived from the two INC models that give the largest spread in the mean. Red boxes indicate that the variation is larger than 5\,MeV / 15\,MeV (absolute, Hyper-K and DUNE respectively) or $0.5\%$ (relative), which is broadly indicative of how well the neutrino energy reconstruction scale must be controlled (see \autoref{sec:enurec}). ``Nuc. Pot.'' stands for the nuclear potential considered in \autoref{subsec:beyondcasc}, for which the table reports a shift derived considering only CCQE interactions."
 
 
 def _emit_data_rows(lines, by_key, mode):
@@ -533,24 +564,66 @@ OUT_DIR = (os.path.join(_root, "BW_summaries") if _root
            else "/eos/home-l/lamuntea/FSI_IOP_paper/run_genie_bw")
 os.makedirs(OUT_DIR, exist_ok=True)
 
+# Channels: (label, flavour pair). νμ-channel: real νμ/ν̄μ samples with
+# disappearance weighting. νe-channel: real νe/ν̄e samples with appearance
+# weighting (or GENIE-numu-as-νe proxy where real νe samples don't exist).
+CHANNELS = [
+    ("numu", ("numu",  "numubar")),
+    ("nue",  ("nue",   "nuebar")),
+]
+
+
+def selection_for(channel, cat_label):
+    """Return (lep_pdg, force_appearance) for (channel, category).
+
+    Most cells follow the natural rule: numu channel → (13, False); nue
+    channel → (11, False) on real νe/ν̄e samples.
+
+    The exception is the GENIE-cascade row in the nue channel: real GENIE
+    νe / ν̄e samples don't exist, so we proxy with the GENIE νμ / ν̄μ files
+    (events have μ final state — selection stays at lep_pdg=13) but apply
+    νμ→νe appearance weighting via force_appearance=True. The cell reflects
+    the cascade-model spread under appearance-flux weighting; bias kinematics
+    are νμ-CC, not νe-CC."""
+    # GENIE νe and EDRMF/RPWIA νe both proxy through νμ NEUT/GENIE files
+    # (no real νe samples for either). Events are νμ-CC (μ final state) →
+    # lep_pdg=13 for the selection, force_appearance=True for the osc weight.
+    if channel == "nue" and (cat_label.startswith("GENIE")
+                              or cat_label.startswith("EDRMF")):
+        return (13, True)
+    if channel == "nue":
+        return (11, False)
+    return (13, False)
+
+
 _all_rows = {}
-for mode in ("abs", "rel"):
-    print(f"\n##### mode = {mode} #####")
-    print("% (loading data; first run may take several minutes)")
-    rows = []
-    for cat_label, variants, path_fn in CATEGORIES:
-        for flav in ("numu", "numubar"):
-            for obs_key in ("hk_qe", "dune_epi", "dune_tpi"):
-                med, mean = category_row(variants, path_fn, flav, obs_key, mode)
-                rows.append((cat_label, flav, obs_key, med, mean))
-    _all_rows[mode] = rows
+for channel, flavours in CHANNELS:
+    for mode in ("abs", "rel"):
+        print(f"\n##### channel = {channel}  mode = {mode} #####")
+        print("% (loading data; first run may take several minutes)")
+        rows = []
+        for cat_label, variants, path_fn in CATEGORIES:
+            lp, force_app = selection_for(channel, cat_label)
+            for flav in flavours:
+                for obs_key in ("hk_qe", "dune_epi", "dune_tpi"):
+                    med, mean = category_row(variants, path_fn, flav,
+                                              obs_key, mode, lep_pdg=lp,
+                                              force_appearance=force_app)
+                    rows.append((cat_label, flav, obs_key, med, mean))
+        _all_rows[(channel, mode)] = rows
 
-    out_path = os.path.join(OUT_DIR, f"variation_table_{mode}.tex")
-    content = emit_table(mode, rows, out_path)
-    print(content)
-    print(f"% wrote {out_path}")
+        out_path = os.path.join(OUT_DIR, f"variation_table_{channel}_{mode}.tex")
+        content = emit_table(mode, rows, out_path, flavours=flavours)
+        print(content)
+        print(f"% wrote {out_path}")
 
-# Combined table: abs section on top of rel section, single LaTeX file.
-_combined_path = os.path.join(OUT_DIR, "variation_table_combined.tex")
-emit_combined_table(_all_rows["abs"], _all_rows["rel"], _combined_path)
-print(f"\n% wrote {_combined_path}")
+# Combined table — kept for backwards compat: numu channel only, abs + rel.
+# Guard: only emit if the numu channel was iterated this run. Allows
+# nue-only runs to skip the combined table (its content is unchanged).
+if ("numu", "abs") in _all_rows and ("numu", "rel") in _all_rows:
+    _combined_path = os.path.join(OUT_DIR, "variation_table_combined.tex")
+    emit_combined_table(_all_rows[("numu", "abs")], _all_rows[("numu", "rel")],
+                        _combined_path)
+    print(f"\n% wrote {_combined_path}")
+else:
+    print("\n% skipping combined table — numu channel not iterated this run")
